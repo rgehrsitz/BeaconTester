@@ -1,0 +1,49 @@
+# Basic temperature monitoring rules
+
+rules:
+  # Simple threshold rule for high temperature
+  - name: HighTemperatureRule
+    description: Detects when temperature exceeds threshold and sets alert flag
+    conditions:
+      all:
+        - condition:
+            type: comparison
+            sensor: input:temperature
+            operator: '>'
+            value: 30
+    actions:
+      - set_value:
+          key: output:high_temperature_alert
+          value_expression: 'true'
+      - set_value:
+          key: output:last_alert_time
+          value_expression: 'now()'
+
+  # Rule with calculated value - heat index calculation
+  - name: HeatIndexCalculationRule
+    description: Calculates heat index from temperature and humidity using simplified formula
+    conditions:
+      all:
+        - condition:
+            type: comparison
+            sensor: input:temperature
+            operator: '>='
+            value: 20
+        - condition:
+            type: comparison
+            sensor: input:humidity
+            operator: '>='
+            value: 40
+    actions:
+      # Simplified heat index calculation. This is a basic approximation.
+      # Heat index = 0.5 * {T + 61.0 + [(T-68.0)*1.2] + (RH*0.094)}
+      # Where T is temperature in F and RH is relative humidity in percent
+      - set_value:
+          key: output:heat_index
+          value_expression: '0.5 * (input:temperature + 61.0 + ((input:temperature - 68.0) * 1.2) + (input:humidity * 0.094))'
+      - set_value:
+          key: buffer:temperature_history
+          value_expression: 'input:temperature'
+      - set_value:
+          key: buffer:humidity_history
+          value_expression: 'input:humidity'

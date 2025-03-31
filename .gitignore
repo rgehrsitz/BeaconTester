@@ -1,114 +1,119 @@
-# .NET build artifacts
-bin/
-obj/
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-**/[Dd]ebug/**
+## .NET Core
+*.swp
+*.*~
+project.lock.json
+.DS_Store
+*.pyc
+nupkg/
 
-# Visual Studio files
+## Visual Studio Code
+.vscode/
+
+## Visual Studio
 .vs/
+.idea/
+*.suo
 *.user
 *.userosscache
-*.suo
-*.userprefs
-*.dbmdl
-*.dbproj.schemaview
-*.jfm
-*.pfx
-*.publishsettings
-orleans.codegen.cs
-*.vspscc
-*.vssscc
-.vscode/
-*_i.c
-*_p.c
-*_h.h
-*.ilk
-*.meta
-*.obj
-*.iobj
-*.pch
-*.pdb
-*.ipdb
-*.pgc
-*.pgd
-*.rsp
-*.sbr
-*.tlb
-*.tli
-*.tlh
-*.tmp
-*.tmp_proj
-*_wpftmp.csproj
-*.log
-*.tlog
-*.vspscc
-*.vssscc
-.builds
-*.pidb
-*.svclog
-*.scc
+*.sln.docstates
 
-# JetBrains Rider
+## Rider
 .idea/
 *.sln.iml
-.idea/
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/contentModel.xml
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+.idea/**/*.iml
+.idea/modules.xml
 
-# NuGet packages
+## Build results - using more explicit patterns
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+**/[Dd]ebug/
+**/[Rr]elease/
+**/x64/
+**/x86/
+**/build/
+**/bld/
+**/[Oo]ut/
+
+# Build logs
+*.log
+*.binlog
+msbuild.*
+
+## Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+## NuGet Packages
 *.nupkg
 *.snupkg
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
-*.nuget.props
-*.nuget.targets
 
-# Test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
+# Uncomment if packages folder should be checked in
+#!**/[Pp]ackages/repositories.config
+Pulsar.Compiler/obj/project.assets.json
+Pulsar.Compiler/obj/project.assets.json
+Pulsar.Compiler/obj/project.assets.json
+log.*
+*.trx
+
+# Log files
+log*.txt
+
+# Auto generated files from Pulsar.Compiler
+/Beacon/
+/Beacon2/
+/BeaconOutput/
+/Generated/
+/Examples/BasicRules/logs/
+/Examples/BasicRules/output/
+/TestBeacon/
+
+# Pulsar-specific output directories
+/TestOutput/
+/logs/
+/test-output/
+/TestAutomation/BeaconOutput/
+
+# Build artifacts and temporary files
+*.dll
+*.exe
+*.pdb
+*.tmp
+*.cache
+
+# Visual Studio and Test artifacts
+.config/
+.nuget/
 TestResults/
+coverage.json
+coverage.xml
+coverage.info
+*.coverage
+*.opencover.xml
 
-# Build artifacts
-[Dd]ebugPS/
-[Rr]eleasePS/
-dlldata.c
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
-
-# macOS specific files
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows specific files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Linux specific files
-*~
-.directory
-.Trash-*
-
-# Project specific
-appsettings.Development.json
+# Environment specific files
+.env
 appsettings.*.json
-!appsettings.json
-*.log
-.cache/
+Properties/launchSettings.json
+
+# Beacon-specific generated directories
+**/Generated/
+**/*.manifest.json
