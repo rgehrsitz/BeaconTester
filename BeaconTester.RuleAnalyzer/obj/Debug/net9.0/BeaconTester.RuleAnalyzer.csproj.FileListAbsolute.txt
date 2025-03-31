@@ -1,0 +1,15 @@
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.csproj.AssemblyReference.cache
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.GeneratedMSBuildEditorConfig.editorconfig
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.AssemblyInfoInputs.cache
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.AssemblyInfo.cs
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.csproj.CoreCompileInputs.cache
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/bin/Debug/net9.0/BeaconTester.RuleAnalyzer.deps.json
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/bin/Debug/net9.0/BeaconTester.RuleAnalyzer.dll
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/bin/Debug/net9.0/BeaconTester.RuleAnalyzer.pdb
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/bin/Debug/net9.0/BeaconTester.Core.dll
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/bin/Debug/net9.0/BeaconTester.Core.pdb
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTe.628E8C4E.Up2Date
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.dll
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/refint/BeaconTester.RuleAnalyzer.dll
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/BeaconTester.RuleAnalyzer.pdb
+/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/obj/Debug/net9.0/ref/BeaconTester.RuleAnalyzer.dll

@@ -1,0 +1,506 @@
+using BeaconTester.RuleAnalyzer.Analysis;
+using BeaconTester.RuleAnalyzer.Parsing;
+using Serilog;
+
+namespace BeaconTester.RuleAnalyzer.Generation
+{
+    /// <summary>
+    /// Target for value generation
+    /// </summary>
+    public enum ValueTarget
+    {
+        /// <summary>
+        /// Generate values that satisfy conditions
+        /// </summary>
+        Positive,
+
+        /// <summary>
+        /// Generate values that don't satisfy conditions
+        /// </summary>
+        Negative,
+    }
+
+    /// <summary>
+    /// Generates test values for conditions
+    /// </summary>
+    public class ValueGenerator
+    {
+        private readonly ILogger _logger;
+        private readonly Random _random = new Random();
+
+        /// <summary>
+        /// Creates a new value generator
+        /// </summary>
+        public ValueGenerator(ILogger logger)
+        {
+            _logger = logger.ForContext<ValueGenerator>();
+        }
+
+        /// <summary>
+        /// Generates a value for a sensor based on rule conditions
+        /// </summary>
+        public object GenerateValueForSensor(RuleDefinition rule, string sensor, ValueTarget target)
+        {
+            // Find all conditions that use this sensor
+            var conditions =
+                rule.Conditions != null
+                    ? FindConditionsForSensor(rule.Conditions, sensor)
+                    : new List<ConditionDefinition>();
+
+            if (conditions.Count == 0)
+            {
+                _logger.Debug(
+                    "No conditions found for sensor {Sensor} in rule {RuleName}",
+                    sensor,
+                    rule.Name
+                );
+
+                // Generate a default value based on sensor name
+                return GenerateDefaultValue(sensor);
+            }
+
+            // For multiple conditions, we need a value that satisfies all of them
+            // (or none of them for negative tests)
+
+            if (conditions.Count == 1)
+            {
+                // Simple case - just one condition
+                return GenerateValueForCondition(conditions[0], target);
+            }
+
+            // For multiple conditions, it gets more complex
+            // We'll first try to find numerical conditions with compatible ranges
+            var numericConditions = conditions.OfType<ComparisonCondition>().ToList();
+
+            if (numericConditions.Count > 0)
+            {
+                return GenerateValueForMultipleConditions(numericConditions, target);
+            }
+
+            // If we can't handle the conditions easily, just use the first one
+            return GenerateValueForCondition(conditions[0], target);
+        }
+
+        /// <summary>
+        /// Generates a value for a temporal condition
+        /// </summary>
+        public object GenerateValueForTemporalCondition(
+            ThresholdOverTimeCondition condition,
+            int step,
+            int totalSteps,
+            ValueTarget target
+        )
+        {
+            var threshold = condition.Threshold;
+            var comparisonOperator = condition.Operator;
+
+            if (target == ValueTarget.Positive)
+            {
+                // For positive cases (should trigger), we need to exceed the threshold
+                switch (comparisonOperator)
+                {
+                    case ">":
+                    case "gt":
+                        // Ramp up to exceed threshold
+                        return threshold + (step + 1) * 2;
+
+                    case ">=":
+                    case "gte":
+                        // Ramp up to meet threshold
+                        return threshold + step;
+
+                    case "<":
+                    case "lt":
+                        // Ramp down to go below threshold
+                        return threshold - (step + 1) * 2;
+
+                    case "<=":
+                    case "lte":
+                        // Ramp down to meet threshold
+                        return threshold - step;
+
+                    default:
+                        return threshold + 10; // Default case
+                }
+            }
+            else
+            {
+                // For negative cases (shouldn't trigger), we need to stay on the wrong side
+                switch (comparisonOperator)
+                {
+                    case ">":
+                    case "gt":
+                        // Stay below threshold
+                        return threshold - 5;
+
+                    case ">=":
+                    case "gte":
+                        // Stay below threshold
+                        return threshold - 1;
+
+                    case "<":
+                    case "lt":
+                        // Stay above threshold
+                        return threshold + 5;
+
+                    case "<=":
+                    case "lte":
+                        // Stay above threshold
+                        return threshold + 1;
+
+                    default:
+                        return threshold - 10; // Default case
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds all conditions that reference a specific sensor
+        /// </summary>
+        private List<ConditionDefinition> FindConditionsForSensor(
+            ConditionDefinition condition,
+            string sensor
+        )
+        {
+            var matchingConditions = new List<ConditionDefinition>();
+
+            if (condition is ComparisonCondition comparison)
+            {
+                if (comparison.Sensor == sensor)
+                {
+                    matchingConditions.Add(comparison);
+                }
+            }
+            else if (condition is ThresholdOverTimeCondition temporal)
+            {
+                if (temporal.Sensor == sensor)
+                {
+                    matchingConditions.Add(temporal);
+                }
+            }
+            else if (condition is ConditionGroup group)
+            {
+                // Process 'all' conditions
+                foreach (var childCondition in group.All)
+                {
+                    matchingConditions.AddRange(FindConditionsForSensor(childCondition, sensor));
+                }
+
+                // Process 'any' conditions
+                foreach (var childCondition in group.Any)
+                {
+                    matchingConditions.AddRange(FindConditionsForSensor(childCondition, sensor));
+                }
+            }
+
+            return matchingConditions;
+        }
+
+        /// <summary>
+        /// Generates a value for a specific condition
+        /// </summary>
+        private object GenerateValueForCondition(ConditionDefinition condition, ValueTarget target)
+        {
+            if (condition is ComparisonCondition comparison)
+            {
+                return GenerateValueForComparisonCondition(comparison, target);
+            }
+            else if (condition is ThresholdOverTimeCondition temporal)
+            {
+                return GenerateValueForTemporalCondition(temporal, 0, 1, target);
+            }
+            else if (condition is ExpressionCondition expression)
+            {
+                // For expression conditions, default to true for positive, false for negative
+                return target == ValueTarget.Positive;
+            }
+            else
+            {
+                // Default values based on target
+                return target == ValueTarget.Positive ? 42 : 0;
+            }
+        }
+
+        /// <summary>
+        /// Generates a value for a comparison condition
+        /// </summary>
+        private object GenerateValueForComparisonCondition(
+            ComparisonCondition condition,
+            ValueTarget target
+        )
+        {
+            var valueObj = condition.Value;
+            var comparisonOperator = condition.Operator.ToLowerInvariant();
+
+            // Handle different value types
+            if (valueObj is double doubleValue)
+            {
+                return GenerateNumericValue(doubleValue, comparisonOperator, target);
+            }
+            else if (valueObj is int intValue)
+            {
+                return GenerateNumericValue(intValue, comparisonOperator, target);
+            }
+            else if (valueObj is bool boolValue)
+            {
+                return target == ValueTarget.Positive ? boolValue : !boolValue;
+            }
+            else if (valueObj is string stringValue)
+            {
+                // Try to parse as number
+                if (double.TryParse(stringValue, out double parsedValue))
+                {
+                    return GenerateNumericValue(parsedValue, comparisonOperator, target);
+                }
+
+                // Handle as string
+                return target == ValueTarget.Positive ? stringValue : $"not_{stringValue}";
+            }
+
+            // Default case
+            return target == ValueTarget.Positive ? 42 : 0;
+        }
+
+        /// <summary>
+        /// Generates a numeric value for a condition
+        /// </summary>
+        private double GenerateNumericValue(
+            double threshold,
+            string comparisonOperator,
+            ValueTarget target
+        )
+        {
+            if (target == ValueTarget.Positive)
+            {
+                // Generate value that satisfies the condition
+                switch (comparisonOperator)
+                {
+                    case ">":
+                    case "gt":
+                        return threshold + 10;
+
+                    case ">=":
+                    case "gte":
+                        return threshold;
+
+                    case "<":
+                    case "lt":
+                        return threshold - 10;
+
+                    case "<=":
+                    case "lte":
+                        return threshold;
+
+                    case "==":
+                    case "=":
+                    case "eq":
+                        return threshold;
+
+                    case "!=":
+                    case "ne":
+                    case "neq":
+                        return threshold + 10;
+
+                    default:
+                        return threshold + 10;
+                }
+            }
+            else
+            {
+                // Generate value that doesn't satisfy the condition
+                switch (comparisonOperator)
+                {
+                    case ">":
+                    case "gt":
+                        return threshold - 1;
+
+                    case ">=":
+                    case "gte":
+                        return threshold - 1;
+
+                    case "<":
+                    case "lt":
+                        return threshold + 1;
+
+                    case "<=":
+                    case "lte":
+                        return threshold + 1;
+
+                    case "==":
+                    case "=":
+                    case "eq":
+                        return threshold + 1;
+
+                    case "!=":
+                    case "ne":
+                    case "neq":
+                        return threshold;
+
+                    default:
+                        return threshold - 10;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generates a value that satisfies multiple conditions
+        /// </summary>
+        private object GenerateValueForMultipleConditions(
+            List<ComparisonCondition> conditions,
+            ValueTarget target
+        )
+        {
+            // For positive tests, we need a value that satisfies ALL conditions
+            // For negative tests, we need a value that fails at least one condition
+
+            if (target == ValueTarget.Positive)
+            {
+                // Find the most restrictive bounds
+                double? lowerBound = null;
+                double? upperBound = null;
+
+                foreach (var condition in conditions)
+                {
+                    var valueObj = condition.Value;
+                    if (valueObj == null)
+                        continue;
+
+                    double value;
+                    if (valueObj is double d)
+                        value = d;
+                    else if (valueObj is int i)
+                        value = i;
+                    else if (double.TryParse(valueObj.ToString(), out double parsed))
+                        value = parsed;
+                    else
+                        continue;
+
+                    string op = condition.Operator.ToLowerInvariant();
+
+                    switch (op)
+                    {
+                        case ">":
+                        case "gt":
+                            if (lowerBound == null || value > lowerBound)
+                                lowerBound = value;
+                            break;
+
+                        case ">=":
+                        case "gte":
+                            if (lowerBound == null || value >= lowerBound)
+                                lowerBound = value;
+                            break;
+
+                        case "<":
+                        case "lt":
+                            if (upperBound == null || value < upperBound)
+                                upperBound = value;
+                            break;
+
+                        case "<=":
+                        case "lte":
+                            if (upperBound == null || value <= upperBound)
+                                upperBound = value;
+                            break;
+
+                        case "==":
+                        case "=":
+                        case "eq":
+                            // Exact match required
+                            return value;
+
+                        case "!=":
+                        case "ne":
+                        case "neq":
+                            // Any other value works
+                            break;
+                    }
+                }
+
+                // Generate a value within the bounds
+                if (lowerBound != null && upperBound != null)
+                {
+                    if (lowerBound < upperBound)
+                    {
+                        // We have a valid range
+                        return lowerBound + (upperBound - lowerBound) / 2;
+                    }
+                    else
+                    {
+                        // No valid value satisfies all conditions
+                        return lowerBound;
+                    }
+                }
+                else if (lowerBound != null)
+                {
+                    return lowerBound + 10;
+                }
+                else if (upperBound != null)
+                {
+                    return upperBound - 10;
+                }
+            }
+            else
+            {
+                // For negative tests, just pick a condition and fail it
+                var condition = conditions.First();
+                return GenerateValueForCondition(condition, ValueTarget.Negative);
+            }
+
+            // Default value
+            return target == ValueTarget.Positive ? 42 : 0;
+        }
+
+        /// <summary>
+        /// Generates a default value based on sensor name
+        /// </summary>
+        private object GenerateDefaultValue(string sensor)
+        {
+            sensor = sensor.ToLowerInvariant();
+
+            // Boolean values
+            if (
+                sensor.Contains("enabled")
+                || sensor.Contains("active")
+                || sensor.Contains("on")
+                || sensor.Contains("status")
+            )
+            {
+                return true;
+            }
+
+            // Temperature values
+            if (sensor.Contains("temperature"))
+            {
+                return 25.0;
+            }
+
+            // Humidity values
+            if (sensor.Contains("humidity") || sensor.Contains("moisture"))
+            {
+                return 50.0;
+            }
+
+            // Pressure values
+            if (sensor.Contains("pressure"))
+            {
+                return 1013.0;
+            }
+
+            // Level values
+            if (sensor.Contains("level") || sensor.Contains("percent"))
+            {
+                return 75.0;
+            }
+
+            // Count values
+            if (sensor.Contains("count") || sensor.Contains("number"))
+            {
+                return 5;
+            }
+
+            // Default to a random number
+            return _random.Next(1, 100);
+        }
+    }
+}

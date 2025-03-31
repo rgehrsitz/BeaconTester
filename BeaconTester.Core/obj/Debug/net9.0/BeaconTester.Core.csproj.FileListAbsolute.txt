@@ -1,0 +1,12 @@
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.csproj.AssemblyReference.cache
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.GeneratedMSBuildEditorConfig.editorconfig
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.AssemblyInfoInputs.cache
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.AssemblyInfo.cs
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.csproj.CoreCompileInputs.cache
+/home/robertg/BeaconTester/BeaconTester.Core/bin/Debug/net9.0/BeaconTester.Core.deps.json
+/home/robertg/BeaconTester/BeaconTester.Core/bin/Debug/net9.0/BeaconTester.Core.dll
+/home/robertg/BeaconTester/BeaconTester.Core/bin/Debug/net9.0/BeaconTester.Core.pdb
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.dll
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/refint/BeaconTester.Core.dll
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/BeaconTester.Core.pdb
+/home/robertg/BeaconTester/BeaconTester.Core/obj/Debug/net9.0/ref/BeaconTester.Core.dll

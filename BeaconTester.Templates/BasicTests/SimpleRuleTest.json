@@ -1,0 +1,44 @@
+{
+  "name": "SimpleTemperatureAlertTest",
+  "description": "Tests the basic temperature alert rule",
+  "steps": [
+    {
+      "name": "Set temperature below threshold",
+      "description": "Temperature should not trigger alert when below threshold",
+      "inputs": [
+        {
+          "key": "input:temperature",
+          "value": 25.0,
+          "format": "string"
+        }
+      ],
+      "delay": 500,
+      "expectations": [
+        {
+          "key": "output:high_temperature_alert",
+          "expected": false,
+          "validator": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "Set temperature above threshold",
+      "description": "Temperature should trigger alert when above threshold",
+      "inputs": [
+        {
+          "key": "input:temperature",
+          "value": 35.0,
+          "format": "string"
+        }
+      ],
+      "delay": 500,
+      "expectations": [
+        {
+          "key": "output:high_temperature_alert",
+          "expected": true,
+          "validator": "boolean"
+        }
+      ]
+    }
+  ]
+}
