@@ -20,10 +20,11 @@ namespace BeaconTester.Core.Redis
             new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         private bool _disposed;
 
-        // Redis key prefixes
-        public const string INPUT_PREFIX = "sensors:";
-        public const string OUTPUT_PREFIX = "outputs:";
-        public const string HISTORY_PREFIX = "history:";
+        // Redis key prefixes - using consistent domain prefixes across the system
+        public const string INPUT_PREFIX = "input:";
+        public const string OUTPUT_PREFIX = "output:";
+        public const string STATE_PREFIX = "state:";
+        public const string BUFFER_PREFIX = "buffer:";
 
         /// <summary>
         /// Creates a new Redis adapter with the specified configuration
@@ -391,20 +392,15 @@ namespace BeaconTester.Core.Redis
             string? field = originalField;
             RedisDataFormat format = RedisDataFormat.String;
 
-            // Check if key matches input:xxx format
-            if (key.StartsWith("input:"))
-            {
-                key = $"{INPUT_PREFIX}{key.Substring(6)}";
-                format = RedisDataFormat.String;
-            }
-            // Check if key matches output:xxx format
-            else if (key.StartsWith("output:"))
-            {
-                key = $"{OUTPUT_PREFIX}{key.Substring(7)}";
-                format = RedisDataFormat.String;
-            }
-            // Check for hash format with colon separator
-            else if (key.Contains(':') && field == null)
+            // Domain prefixes (input:, output:, state:, buffer:) are now preserved as-is
+            // No transformation is done to ensure consistent naming across the system
+            
+            // Check for hash format with colon separator (if not a domain prefix)
+            if (key.Contains(':') && field == null && 
+                !key.StartsWith(INPUT_PREFIX) && 
+                !key.StartsWith(OUTPUT_PREFIX) && 
+                !key.StartsWith(STATE_PREFIX) && 
+                !key.StartsWith(BUFFER_PREFIX))
             {
                 var parts = key.Split(':');
                 if (parts.Length == 2)
@@ -570,12 +566,9 @@ namespace BeaconTester.Core.Redis
                 foreach (var (key, value) in outputs)
                 {
                     string redisKey = key;
-
-                    // Apply format conventions if needed
-                    if (key.StartsWith("output:"))
-                    {
-                        redisKey = $"{OUTPUT_PREFIX}{key.Substring(7)}";
-                    }
+                    
+                    // No prefix transformation is done to ensure consistent naming across the system
+                    // Domain prefixes (output:, state:, buffer:) are preserved as-is
 
                     await _db.StringSetAsync(redisKey, value.ToString());
                     _logger.Debug("Pre-set output {Key} = {Value}", redisKey, value);

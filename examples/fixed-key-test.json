@@ -1,0 +1,73 @@
+{
+  "scenarios": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "description": "Basic test for rule HighTemperatureRule",
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "sensors:temperature",
+              "value": 40,
+              "format": 1
+            }
+          ],
+          "delay": 1000,
+          "expectations": [
+            {
+              "key": "outputs:high_temperature_alert",
+              "expected": true,
+              "validator": "boolean",
+              "format": 1,
+              "timeoutMs": 3000,
+              "pollingIntervalMs": 100
+            },
+            {
+              "key": "outputs:last_alert_time",
+              "expected": "IGNORE_VALUE",
+              "validator": "string",
+              "format": 1,
+              "timeoutMs": 3000,
+              "pollingIntervalMs": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HeatIndexCalculationRuleBasicTest",
+      "description": "Basic test for rule HeatIndexCalculationRule",
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "sensors:temperature",
+              "value": 25,
+              "format": 1
+            },
+            {
+              "key": "sensors:humidity",
+              "value": 50,
+              "format": 1
+            }
+          ],
+          "delay": 1000,
+          "expectations": [
+            {
+              "key": "outputs:heat_index",
+              "expected": "IGNORE_VALUE",
+              "validator": "string",
+              "format": 1,
+              "timeoutMs": 3000,
+              "pollingIntervalMs": 100
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

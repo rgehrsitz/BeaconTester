@@ -35,17 +35,23 @@ namespace BeaconTester.RuleAnalyzer.Analysis
             if (condition is ConditionGroup group)
             {
                 // Process 'all' conditions
-                foreach (var childCondition in group.All)
+                foreach (var wrapper in group.All)
                 {
-                    var childSensors = ExtractSensors(childCondition);
-                    sensors.UnionWith(childSensors);
+                    if (wrapper.Condition != null)
+                    {
+                        var childSensors = ExtractSensors(wrapper.Condition);
+                        sensors.UnionWith(childSensors);
+                    }
                 }
 
                 // Process 'any' conditions
-                foreach (var childCondition in group.Any)
+                foreach (var wrapper in group.Any)
                 {
-                    var childSensors = ExtractSensors(childCondition);
-                    sensors.UnionWith(childSensors);
+                    if (wrapper.Condition != null)
+                    {
+                        var childSensors = ExtractSensors(wrapper.Condition);
+                        sensors.UnionWith(childSensors);
+                    }
                 }
             }
             else if (condition is ComparisonCondition comparison)
@@ -118,16 +124,16 @@ namespace BeaconTester.RuleAnalyzer.Analysis
             if (condition is ConditionGroup group)
             {
                 // Check 'all' conditions
-                foreach (var childCondition in group.All)
+                foreach (var wrapper in group.All)
                 {
-                    if (HasTemporalCondition(childCondition))
+                    if (wrapper.Condition != null && HasTemporalCondition(wrapper.Condition))
                         return true;
                 }
 
                 // Check 'any' conditions
-                foreach (var childCondition in group.Any)
+                foreach (var wrapper in group.Any)
                 {
-                    if (HasTemporalCondition(childCondition))
+                    if (wrapper.Condition != null && HasTemporalCondition(wrapper.Condition))
                         return true;
                 }
             }

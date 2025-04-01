@@ -1,4 +1,6 @@
 using Serilog;
+using System.Text.RegularExpressions;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -21,7 +23,7 @@ namespace BeaconTester.RuleAnalyzer.Parsing
 
             // Configure YAML deserializer
             _deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
+                .WithNamingConvention(UnderscoredNamingConvention.Instance)  // Use underscore convention like Pulsar
                 .IgnoreUnmatchedProperties()
                 .Build();
         }
@@ -38,10 +40,21 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                     string.IsNullOrEmpty(sourceFile) ? "content" : sourceFile
                 );
 
-                // Deserialize the YAML into our model
-                var ruleGroup = _deserializer.Deserialize<RuleGroup>(yamlContent);
+                // First deserialize using our YAML model
+                RuleRoot? ruleRoot;
+                try 
+                {
+                    ruleRoot = _deserializer.Deserialize<RuleRoot>(yamlContent);
+                    _logger.Debug("Successfully deserialized YAML");
+                }
+                catch (YamlDotNet.Core.YamlException yamlEx)
+                {
+                    _logger.Error(yamlEx, "YAML parsing error at {Start}: {Message}", 
+                        yamlEx.Start, yamlEx.Message);
+                    throw;
+                }
 
-                if (ruleGroup == null || ruleGroup.Rules == null || ruleGroup.Rules.Count == 0)
+                if (ruleRoot == null || ruleRoot.Rules == null || ruleRoot.Rules.Count == 0)
                 {
                     _logger.Warning(
                         "No rules found in {SourceFile}",
@@ -50,19 +63,82 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                     return new List<RuleDefinition>();
                 }
 
-                // Set the source file for each rule
-                foreach (var rule in ruleGroup.Rules)
+                // Convert from the YAML model to the domain model
+                var ruleDefinitions = new List<RuleDefinition>();
+                foreach (var rule in ruleRoot.Rules)
                 {
-                    rule.SourceFile = sourceFile;
+                    var ruleDef = new RuleDefinition
+                    {
+                        Name = rule.Name,
+                        Description = rule.Description,
+                        SourceFile = sourceFile,
+                        LineNumber = rule.LineNumber
+                    };
+
+                    // Convert conditions
+                    if (rule.Conditions != null)
+                    {
+                        ruleDef.Conditions = new ConditionGroup();
+                        
+                        // Handle 'all' conditions
+                        if (rule.Conditions.All != null)
+                        {
+                            foreach (var condItem in rule.Conditions.All)
+                            {
+                                var wrapper = new ConditionWrapper();
+                                wrapper.Condition = ConvertCondition(condItem.Condition);
+                                ruleDef.Conditions.All.Add(wrapper);
+                            }
+                        }
+                        
+                        // Handle 'any' conditions
+                        if (rule.Conditions.Any != null)
+                        {
+                            foreach (var condItem in rule.Conditions.Any)
+                            {
+                                var wrapper = new ConditionWrapper();
+                                wrapper.Condition = ConvertCondition(condItem.Condition);
+                                ruleDef.Conditions.Any.Add(wrapper);
+                            }
+                        }
+                    }
+
+                    // Convert actions
+                    if (rule.Actions != null)
+                    {
+                        foreach (var actionItem in rule.Actions)
+                        {
+                            if (actionItem.SetValue != null)
+                            {
+                                ruleDef.Actions.Add(new SetValueAction
+                                {
+                                    Key = actionItem.SetValue.Key,
+                                    Value = actionItem.SetValue.Value,
+                                    ValueExpression = actionItem.SetValue.ValueExpression
+                                });
+                            }
+                            else if (actionItem.SendMessage != null)
+                            {
+                                ruleDef.Actions.Add(new SendMessageAction
+                                {
+                                    Channel = actionItem.SendMessage.Channel,
+                                    Message = actionItem.SendMessage.Message,
+                                    MessageExpression = actionItem.SendMessage.MessageExpression
+                                });
+                            }
+                        }
+                    }
+
+                    ruleDefinitions.Add(ruleDef);
                 }
 
                 _logger.Information(
                     "Parsed {RuleCount} rules from {SourceFile}",
-                    ruleGroup.Rules.Count,
+                    ruleDefinitions.Count,
                     string.IsNullOrEmpty(sourceFile) ? "content" : sourceFile
                 );
 
-                return ruleGroup.Rules;
+                return ruleDefinitions;
             }
             catch (Exception ex)
             {
@@ -72,6 +148,46 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                     string.IsNullOrEmpty(sourceFile) ? "content" : sourceFile
                 );
                 throw;
+            }
+        }
+        
+        /// <summary>
+        /// Converts a YAML condition to a domain model condition
+        /// </summary>
+        private ConditionDefinition ConvertCondition(ConditionDetails condition)
+        {
+            var type = condition.Type.ToLowerInvariant();
+            
+            switch (type)
+            {
+                case "comparison":
+                    return new ComparisonCondition
+                    {
+                        Type = "comparison",
+                        Sensor = condition.Sensor ?? string.Empty,
+                        Operator = condition.Operator ?? ">",
+                        Value = condition.Value ?? 0
+                    };
+                    
+                case "expression":
+                    return new ExpressionCondition
+                    {
+                        Type = "expression",
+                        Expression = condition.Expression ?? string.Empty
+                    };
+                    
+                case "threshold_over_time":
+                    return new ThresholdOverTimeCondition
+                    {
+                        Type = "threshold_over_time",
+                        Sensor = condition.Sensor ?? string.Empty,
+                        Threshold = condition.Value ?? 0,
+                        Duration = condition.Duration ?? 0
+                    };
+                    
+                default:
+                    _logger.Warning("Unknown condition type: {Type}", type);
+                    return new ComparisonCondition { Type = type };
             }
         }
 

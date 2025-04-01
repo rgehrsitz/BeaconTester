@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "name": "KeyFormatTest",
+      "success": false,
+      "duration": "00:00:20.2660327",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:20.2300538",
+          "expectationResults": [
+            {
+              "key": "output:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            },
+            {
+              "key": "outputs:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            },
+            {
+              "key": "high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-03-31T17:18:10.2551696Z",
+      "endTime": "2025-03-31T17:18:30.5212023Z"
+    }
+  ]
+}

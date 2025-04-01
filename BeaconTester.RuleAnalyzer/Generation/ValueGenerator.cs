@@ -181,15 +181,21 @@ namespace BeaconTester.RuleAnalyzer.Generation
             else if (condition is ConditionGroup group)
             {
                 // Process 'all' conditions
-                foreach (var childCondition in group.All)
+                foreach (var wrapper in group.All)
                 {
-                    matchingConditions.AddRange(FindConditionsForSensor(childCondition, sensor));
+                    if (wrapper.Condition != null)
+                    {
+                        matchingConditions.AddRange(FindConditionsForSensor(wrapper.Condition, sensor));
+                    }
                 }
 
                 // Process 'any' conditions
-                foreach (var childCondition in group.Any)
+                foreach (var wrapper in group.Any)
                 {
-                    matchingConditions.AddRange(FindConditionsForSensor(childCondition, sensor));
+                    if (wrapper.Condition != null)
+                    {
+                        matchingConditions.AddRange(FindConditionsForSensor(wrapper.Condition, sensor));
+                    }
                 }
             }
 

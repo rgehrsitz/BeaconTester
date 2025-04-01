@@ -1,4 +1,5 @@
 using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace BeaconTester.RuleAnalyzer.Parsing
 {
@@ -70,12 +71,24 @@ namespace BeaconTester.RuleAnalyzer.Parsing
         /// <summary>
         /// Conditions that must all be true
         /// </summary>
-        public List<ConditionDefinition> All { get; set; } = new List<ConditionDefinition>();
+        public List<ConditionWrapper> All { get; set; } = new List<ConditionWrapper>();
 
         /// <summary>
         /// Conditions where any can be true
         /// </summary>
-        public List<ConditionDefinition> Any { get; set; } = new List<ConditionDefinition>();
+        public List<ConditionWrapper> Any { get; set; } = new List<ConditionWrapper>();
+    }
+    
+    /// <summary>
+    /// Wrapper for condition to match Pulsar YAML format
+    /// </summary>
+    public class ConditionWrapper
+    {
+        /// <summary>
+        /// The wrapped condition
+        /// </summary>
+        [YamlMember(Alias = "condition")]
+        public ConditionDefinition Condition { get; set; }
     }
 
     /// <summary>
@@ -165,16 +178,19 @@ namespace BeaconTester.RuleAnalyzer.Parsing
         /// <summary>
         /// Key to set
         /// </summary>
+        [YamlMember(Alias = "key")]
         public string Key { get; set; } = string.Empty;
 
         /// <summary>
         /// Static value to set
         /// </summary>
+        [YamlMember(Alias = "value")]
         public object? Value { get; set; }
 
         /// <summary>
         /// Expression to evaluate for the value
         /// </summary>
+        [YamlMember(Alias = "value_expression")]
         public string? ValueExpression { get; set; }
     }
 
@@ -186,16 +202,20 @@ namespace BeaconTester.RuleAnalyzer.Parsing
         /// <summary>
         /// Channel to send message to
         /// </summary>
+        [YamlMember(Alias = "channel")]
         public string Channel { get; set; } = string.Empty;
 
         /// <summary>
         /// Static message to send
         /// </summary>
+        [YamlMember(Alias = "message")]
         public string? Message { get; set; }
 
         /// <summary>
         /// Expression to evaluate for the message
         /// </summary>
+        [YamlMember(Alias = "message_expression")]
         public string? MessageExpression { get; set; }
     }
+
 }

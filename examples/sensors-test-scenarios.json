@@ -1,0 +1,41 @@
+{
+  "scenarios": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "description": "Basic test for rule HighTemperatureRule: Detects when temperature exceeds threshold and sets alert flag",
+      "preSetOutputs": null,
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "sensors:temperature",
+              "value": 40,
+              "format": 1,
+              "field": null
+            }
+          ],
+          "delay": 500,
+          "expectations": [
+            {
+              "key": "outputs:high_temperature_alert",
+              "field": null,
+              "expected": true,
+              "validator": "boolean",
+              "format": 1,
+              "tolerance": null,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            }
+          ],
+          "result": null
+        }
+      ],
+      "inputs": null,
+      "inputSequence": null,
+      "expectedOutputs": null,
+      "tolerance": null
+    }
+  ]
+}

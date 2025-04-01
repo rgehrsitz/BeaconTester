@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "success": false,
+      "duration": "00:00:13.0549788",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:13.0244498",
+          "expectationResults": [
+            {
+              "key": "outputs:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-03-31T17:29:17.9602624Z",
+      "endTime": "2025-03-31T17:29:31.0152412Z"
+    }
+  ]
+}

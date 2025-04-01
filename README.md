@@ -104,6 +104,23 @@ Test scenarios are defined in JSON format. Here's a simple example:
 }
 ```
 
+## Redis Key Naming Convention
+
+BeaconTester uses a consistent domain-based naming convention for Redis keys:
+
+1. **input:** - External inputs/raw sensor data (e.g., `input:temperature`)
+2. **output:** - Final outputs/alerts/actions (e.g., `output:high_temperature_alert`)
+3. **state:** - Derived values shared between rules (e.g., `state:avg_temperature`)
+4. **buffer:** - Historical/temporal data (e.g., `buffer:temperature_history`)
+
+This consistent naming convention:
+- Creates a clear data flow through the system (inputs → state → outputs)
+- Makes rule dependencies more traceable and explicit
+- Simplifies testing by clarifying value domains and expectations
+- Eliminates translation errors between different system layers
+
+> **Important**: Ensure your Beacon runtime is also configured to use these same prefix conventions.
+
 ## Advanced Features
 
 ### Testing Temporal Rules

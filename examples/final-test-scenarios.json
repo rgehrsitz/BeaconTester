@@ -1,0 +1,152 @@
+{
+  "scenarios": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "description": "Basic test for rule HighTemperatureRule: Detects when temperature exceeds threshold and sets alert flag",
+      "preSetOutputs": null,
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "input:temperature",
+              "value": 40,
+              "format": 1,
+              "field": null
+            }
+          ],
+          "delay": 500,
+          "expectations": [
+            {
+              "key": "output:high_temperature_alert",
+              "field": null,
+              "expected": true,
+              "validator": "boolean",
+              "format": 1,
+              "tolerance": null,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            },
+            {
+              "key": "output:last_alert_time",
+              "field": null,
+              "expected": "IGNORE_VALUE",
+              "validator": "string",
+              "format": 1,
+              "tolerance": null,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            }
+          ],
+          "result": null
+        },
+        {
+          "name": "Negative test case",
+          "description": "Test inputs that should not trigger the rule",
+          "inputs": [
+            {
+              "key": "input:temperature",
+              "value": 29,
+              "format": 1,
+              "field": null
+            }
+          ],
+          "delay": 500,
+          "expectations": [
+            {
+              "key": "output:high_temperature_alert",
+              "field": null,
+              "expected": false,
+              "validator": "boolean",
+              "format": 1,
+              "tolerance": null,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            }
+          ],
+          "result": null
+        }
+      ],
+      "inputs": null,
+      "inputSequence": null,
+      "expectedOutputs": null,
+      "tolerance": null
+    },
+    {
+      "name": "HeatIndexCalculationRuleBasicTest",
+      "description": "Basic test for rule HeatIndexCalculationRule: Calculates heat index from temperature and humidity using simplified formula",
+      "preSetOutputs": null,
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "input:temperature",
+              "value": 25,
+              "format": 1,
+              "field": null
+            },
+            {
+              "key": "input:humidity",
+              "value": 50,
+              "format": 1,
+              "field": null
+            }
+          ],
+          "delay": 500,
+          "expectations": [
+            {
+              "key": "output:heat_index",
+              "field": null,
+              "expected": 44.7,
+              "validator": "numeric",
+              "format": 1,
+              "tolerance": 0.1,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            }
+          ],
+          "result": null
+        },
+        {
+          "name": "Negative test case",
+          "description": "Test inputs that should not trigger the rule",
+          "inputs": [
+            {
+              "key": "input:temperature",
+              "value": 19,
+              "format": 1,
+              "field": null
+            },
+            {
+              "key": "input:humidity",
+              "value": 39,
+              "format": 1,
+              "field": null
+            }
+          ],
+          "delay": 500,
+          "expectations": [
+            {
+              "key": "output:heat_index",
+              "field": null,
+              "expected": null,
+              "validator": "numeric",
+              "format": 1,
+              "tolerance": null,
+              "timeoutMs": 2000,
+              "pollingIntervalMs": 100
+            }
+          ],
+          "result": null
+        }
+      ],
+      "inputs": null,
+      "inputSequence": null,
+      "expectedOutputs": null,
+      "tolerance": null
+    }
+  ]
+}

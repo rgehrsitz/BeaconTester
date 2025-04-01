@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "name": "DirectKeysTest",
+      "success": false,
+      "duration": "00:00:23.0908545",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:23.0575612",
+          "expectationResults": [
+            {
+              "key": "output:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            },
+            {
+              "key": "outputs:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-03-31T17:37:53.1304742Z",
+      "endTime": "2025-03-31T17:38:16.2213287Z"
+    }
+  ]
+}

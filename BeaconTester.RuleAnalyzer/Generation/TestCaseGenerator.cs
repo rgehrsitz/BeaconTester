@@ -266,15 +266,21 @@ namespace BeaconTester.RuleAnalyzer.Generation
             else if (condition is ConditionGroup group)
             {
                 // Process 'all' conditions
-                foreach (var childCondition in group.All)
+                foreach (var wrapper in group.All)
                 {
-                    temporalConditions.AddRange(FindTemporalConditions(childCondition));
+                    if (wrapper.Condition != null)
+                    {
+                        temporalConditions.AddRange(FindTemporalConditions(wrapper.Condition));
+                    }
                 }
 
                 // Process 'any' conditions
-                foreach (var childCondition in group.Any)
+                foreach (var wrapper in group.Any)
                 {
-                    temporalConditions.AddRange(FindTemporalConditions(childCondition));
+                    if (wrapper.Condition != null)
+                    {
+                        temporalConditions.AddRange(FindTemporalConditions(wrapper.Condition));
+                    }
                 }
             }
 

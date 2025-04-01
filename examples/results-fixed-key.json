@@ -1,0 +1,59 @@
+{
+  "results": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "success": false,
+      "duration": "00:00:07.1355709",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:07.0815324",
+          "expectationResults": [
+            {
+              "key": "outputs:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": null,
+              "details": "Expected: True, Actual: "
+            },
+            {
+              "key": "outputs:last_alert_time",
+              "success": false,
+              "expected": "IGNORE_VALUE",
+              "actual": null,
+              "details": "Expected: IGNORE_VALUE, Actual: "
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-03-31T17:28:02.1211657Z",
+      "endTime": "2025-03-31T17:28:09.2567366Z"
+    },
+    {
+      "name": "HeatIndexCalculationRuleBasicTest",
+      "success": false,
+      "duration": "00:00:04.0504623",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:04.0477380",
+          "expectationResults": [
+            {
+              "key": "outputs:heat_index",
+              "success": false,
+              "expected": "IGNORE_VALUE",
+              "actual": null,
+              "details": "Expected: IGNORE_VALUE, Actual: "
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-03-31T17:28:09.2582755Z",
+      "endTime": "2025-03-31T17:28:13.3087378Z"
+    }
+  ]
+}

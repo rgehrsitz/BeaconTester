@@ -1,0 +1,31 @@
+{
+  "scenarios": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "description": "Basic test for rule HighTemperatureRule",
+      "steps": [
+        {
+          "name": "Positive test case",
+          "description": "Test inputs that should trigger the rule",
+          "inputs": [
+            {
+              "key": "temperature",
+              "value": 40,
+              "format": 0
+            }
+          ],
+          "delay": 1000,
+          "expectations": [
+            {
+              "key": "high_temperature_alert",
+              "expected": true,
+              "validator": "boolean",
+              "timeoutMs": 3000,
+              "pollingIntervalMs": 100
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
