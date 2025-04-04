@@ -1058,11 +1058,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/robertg/BeaconTester/BeaconTester.Runner/BeaconTester.Runner.csproj",
+      "projectUniqueName": "/home/robertg/PB/BeaconTester/BeaconTester.Runner/BeaconTester.Runner.csproj",
       "projectName": "BeaconTester.Runner",
-      "projectPath": "/home/robertg/BeaconTester/BeaconTester.Runner/BeaconTester.Runner.csproj",
+      "projectPath": "/home/robertg/PB/BeaconTester/BeaconTester.Runner/BeaconTester.Runner.csproj",
       "packagesPath": "/home/robertg/.nuget/packages/",
-      "outputPath": "/home/robertg/BeaconTester/BeaconTester.Runner/obj/",
+      "outputPath": "/home/robertg/PB/BeaconTester/BeaconTester.Runner/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/robertg/.nuget/NuGet/NuGet.Config"
@@ -1077,11 +1077,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "/home/robertg/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj": {
-              "projectPath": "/home/robertg/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj"
+            "/home/robertg/PB/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj": {
+              "projectPath": "/home/robertg/PB/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj"
             },
-            "/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj": {
-              "projectPath": "/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj"
+            "/home/robertg/PB/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj": {
+              "projectPath": "/home/robertg/PB/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj"
             }
           }
         }
@@ -1123,7 +1123,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.200/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.202/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

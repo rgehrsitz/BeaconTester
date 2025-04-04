@@ -117,3 +117,6 @@ Properties/launchSettings.json
 # Beacon-specific generated directories
 **/Generated/
 **/*.manifest.json
+BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
+BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
+BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.dgspec.json

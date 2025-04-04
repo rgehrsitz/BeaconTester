@@ -885,11 +885,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/robertg/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj",
+      "projectUniqueName": "/home/robertg/PB/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj",
       "projectName": "BeaconTester.Core",
-      "projectPath": "/home/robertg/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj",
+      "projectPath": "/home/robertg/PB/BeaconTester/BeaconTester.Core/BeaconTester.Core.csproj",
       "packagesPath": "/home/robertg/.nuget/packages/",
-      "outputPath": "/home/robertg/BeaconTester/BeaconTester.Core/obj/",
+      "outputPath": "/home/robertg/PB/BeaconTester/BeaconTester.Core/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/robertg/.nuget/NuGet/NuGet.Config"
@@ -971,7 +971,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.200/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.202/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

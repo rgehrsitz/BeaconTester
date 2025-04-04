@@ -257,16 +257,30 @@ namespace BeaconTester.Core.Redis
                         {
                             actualValue = stringValue.ToString();
                             // Try to parse as a number if that's what's expected
-                            if (expectation.Expected is double || expectation.Expected is int)
+                            if (expectation.Expected is double || expectation.Expected is int || expectation.Expected is long || expectation.Expected is float)
                             {
-                                if (double.TryParse(stringValue.ToString(), out var doubleVal))
+                                string stringVal = stringValue.ToString() ?? string.Empty;
+                                // Handle both period and comma as decimal separators
+                                string normalizedString = stringVal.Trim().Replace(",", ".");
+                                if (double.TryParse(normalizedString, out var doubleVal))
                                 {
                                     actualValue = doubleVal;
                                 }
                             }
                             else if (expectation.Expected is bool)
                             {
-                                if (bool.TryParse(stringValue.ToString(), out var boolVal))
+                                string stringVal = stringValue.ToString() ?? string.Empty;
+                                string normalizedValue = stringVal.Trim().ToLowerInvariant();
+                                
+                                if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes")
+                                {
+                                    actualValue = true;
+                                }
+                                else if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no")
+                                {
+                                    actualValue = false;
+                                }
+                                else if (bool.TryParse(stringVal, out var boolVal))
                                 {
                                     actualValue = boolVal;
                                 }
@@ -289,16 +303,30 @@ namespace BeaconTester.Core.Redis
                         {
                             actualValue = hashValue.ToString();
                             // Try to parse as a number if that's what's expected
-                            if (expectation.Expected is double || expectation.Expected is int)
+                            if (expectation.Expected is double || expectation.Expected is int || expectation.Expected is long || expectation.Expected is float)
                             {
-                                if (double.TryParse(hashValue.ToString(), out var doubleVal))
+                                string stringVal = hashValue.ToString() ?? string.Empty;
+                                // Handle both period and comma as decimal separators
+                                string normalizedString = stringVal.Trim().Replace(",", ".");
+                                if (double.TryParse(normalizedString, out var doubleVal))
                                 {
                                     actualValue = doubleVal;
                                 }
                             }
                             else if (expectation.Expected is bool)
                             {
-                                if (bool.TryParse(hashValue.ToString(), out var boolVal))
+                                string stringVal = hashValue.ToString() ?? string.Empty;
+                                string normalizedValue = stringVal.Trim().ToLowerInvariant();
+                                
+                                if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes")
+                                {
+                                    actualValue = true;
+                                }
+                                else if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no")
+                                {
+                                    actualValue = false;
+                                }
+                                else if (bool.TryParse(stringVal, out var boolVal))
                                 {
                                     actualValue = boolVal;
                                 }
@@ -430,9 +458,26 @@ namespace BeaconTester.Core.Redis
             {
                 expectedBool = eb;
             }
-            else if (expected is string es && bool.TryParse(es, out var esb))
+            else if (expected is string es)
             {
-                expectedBool = esb;
+                // Handle case-insensitive "true"/"false" and more flexible boolean representations
+                var normalizedValue = es.Trim().ToLowerInvariant();
+                if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes")
+                {
+                    expectedBool = true;
+                }
+                else if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no")
+                {
+                    expectedBool = false;
+                }
+                else if (bool.TryParse(es, out var esb))
+                {
+                    expectedBool = esb;
+                }
+                else
+                {
+                    return false;
+                }
             }
             else
             {
@@ -444,12 +489,31 @@ namespace BeaconTester.Core.Redis
             {
                 actualBool = ab;
             }
-            else if (actual is string asValue && bool.TryParse(asValue, out var asb))
+            else if (actual is string asValue)
             {
-                actualBool = asb;
+                // Handle case-insensitive "true"/"false" and more flexible boolean representations
+                var normalizedValue = asValue.Trim().ToLowerInvariant();
+                if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes")
+                {
+                    actualBool = true;
+                }
+                else if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no")
+                {
+                    actualBool = false;
+                }
+                else if (bool.TryParse(asValue, out var asb))
+                {
+                    actualBool = asb;
+                }
+                else
+                {
+                    _logger.Debug("Failed to parse boolean value: {Value}", asValue);
+                    return false;
+                }
             }
             else
             {
+                _logger.Debug("Actual value is not a string or boolean: {Type}", actual?.GetType().Name ?? "null");
                 return false;
             }
 
@@ -480,12 +544,27 @@ namespace BeaconTester.Core.Redis
             {
                 expectedNumber = ef;
             }
-            else if (expected is string es && double.TryParse(es, out var esd))
+            else if (expected is long el)
             {
-                expectedNumber = esd;
+                expectedNumber = el;
+            }
+            else if (expected is string es)
+            {
+                // Normalize strings, handling regional format issues
+                string normalizedString = es.Trim().Replace(",", ".");
+                if (double.TryParse(normalizedString, out var esd))
+                {
+                    expectedNumber = esd;
+                }
+                else
+                {
+                    _logger.Debug("Cannot parse expected string as number: {Value}", es);
+                    return false;
+                }
             }
             else
             {
+                _logger.Debug("Unexpected type for expected value: {Type}", expected.GetType().Name);
                 return false;
             }
 
@@ -502,16 +581,39 @@ namespace BeaconTester.Core.Redis
             {
                 actualNumber = af;
             }
-            else if (actual is string asValue && double.TryParse(asValue, out var asd))
+            else if (actual is long al)
             {
-                actualNumber = asd;
+                actualNumber = al;
+            }
+            else if (actual is string asValue)
+            {
+                // Normalize strings, handling regional format issues
+                string normalizedString = asValue.Trim().Replace(",", ".");
+                if (double.TryParse(normalizedString, out var asd))
+                {
+                    actualNumber = asd;
+                }
+                else
+                {
+                    _logger.Debug("Cannot parse actual string as number: {Value}", asValue);
+                    return false;
+                }
             }
             else
             {
+                _logger.Debug("Unexpected type for actual value: {Type}", actual.GetType().Name);
                 return false;
             }
 
-            return Math.Abs(expectedNumber - actualNumber) <= tolerance;
+            bool isEqual = Math.Abs(expectedNumber - actualNumber) <= tolerance;
+            
+            if (!isEqual)
+            {
+                _logger.Debug("Numeric comparison failed: expected {Expected}, actual {Actual}, tolerance {Tolerance}", 
+                    expectedNumber, actualNumber, tolerance);
+            }
+            
+            return isEqual;
         }
 
         /// <summary>
@@ -519,13 +621,72 @@ namespace BeaconTester.Core.Redis
         /// </summary>
         private bool CompareStrings(object? expected, object? actual)
         {
-            if (expected == null || actual == null)
-                return expected == actual;
+            // Special handling for null values
+            if (expected == null && actual == null)
+                return true;
+                
+            // Handle cases where only one is null - treat null as empty string for comparisons
+            if (expected == null)
+                expected = string.Empty;
+                
+            if (actual == null)
+                actual = string.Empty;
 
             string expectedString = expected.ToString() ?? string.Empty;
             string actualString = actual.ToString() ?? string.Empty;
 
-            return expectedString == actualString;
+            // Handle empty strings and whitespace - do this check early
+            bool expectedEmpty = string.IsNullOrWhiteSpace(expectedString);
+            bool actualEmpty = string.IsNullOrWhiteSpace(actualString);
+            
+            if (expectedEmpty && actualEmpty)
+                return true;
+
+            // Trim strings for more forgiving comparison
+            string trimmedExpected = expectedString.Trim();
+            string trimmedActual = actualString.Trim();
+
+            // If the expected value looks like a boolean, try to handle case variations
+            if (trimmedExpected.ToLowerInvariant() == "true" || 
+                trimmedExpected.ToLowerInvariant() == "false" ||
+                trimmedExpected == "1" || trimmedExpected == "0")
+            {
+                // Try converting both to booleans and compare
+                return CompareBooleans(expected, actual);
+            }
+            
+            // For numeric strings, try to compare numerically with improved parsing
+            string normalizedExpected = trimmedExpected.Replace(",", ".");
+            string normalizedActual = trimmedActual.Replace(",", ".");
+            
+            if (double.TryParse(normalizedExpected, out var expectedNum) && 
+                double.TryParse(normalizedActual, out var actualNum))
+            {
+                // If both are numbers, use a small tolerance
+                const double tolerance = 0.0001;
+                bool isEqual = Math.Abs(expectedNum - actualNum) <= tolerance;
+                
+                if (isEqual)
+                    return true;
+                    
+                _logger.Debug("Numeric string comparison failed: {Expected} vs {Actual}", 
+                    expectedString, actualString);
+            }
+
+            // Try case-insensitive comparison
+            if (string.Equals(trimmedExpected, trimmedActual, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Default to exact string comparison
+            bool exactMatch = expectedString == actualString;
+            
+            if (!exactMatch)
+            {
+                _logger.Debug("String comparison failed: expected '{Expected}', actual '{Actual}'", 
+                    expectedString, actualString);
+            }
+            
+            return exactMatch;
         }
 
         /// <summary>

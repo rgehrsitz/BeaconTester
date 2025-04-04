@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "58xKr7R+B7I=",
+  "dgSpecHash": "kJ0ZhP7/ieM=",
   "success": true,
-  "projectFilePath": "/home/robertg/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj",
+  "projectFilePath": "/home/robertg/PB/BeaconTester/BeaconTester.RuleAnalyzer/BeaconTester.RuleAnalyzer.csproj",
   "expectedPackageFiles": [
     "/home/robertg/.nuget/packages/microsoft.extensions.configuration/9.0.3/microsoft.extensions.configuration.9.0.3.nupkg.sha512",
     "/home/robertg/.nuget/packages/microsoft.extensions.configuration.abstractions/9.0.3/microsoft.extensions.configuration.abstractions.9.0.3.nupkg.sha512",

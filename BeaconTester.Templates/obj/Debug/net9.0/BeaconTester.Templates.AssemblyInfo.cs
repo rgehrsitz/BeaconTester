@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BeaconTester.Templates")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+70324e97601cdd4eccf00d7a5be8dbf4b789a602")]
 [assembly: System.Reflection.AssemblyProductAttribute("BeaconTester.Templates")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BeaconTester.Templates")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
