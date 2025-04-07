@@ -14,6 +14,18 @@ namespace BeaconTester.Core.Validation
         {
             _errorDetails = null;
 
+            // Special case for "__any__" which means "accept any value"
+            if (expected is string expectedStr && expectedStr == "__any__")
+            {
+                if (actual != null)
+                {
+                    return true;
+                }
+                
+                _errorDetails = "Expected any value, but got null";
+                return false;
+            }
+
             if (expected == null && actual == null)
                 return true;
 
