@@ -55,7 +55,7 @@ namespace BeaconTester.RuleAnalyzer.Parsing
         public string Type { get; set; } = string.Empty;
         public string? Sensor { get; set; }
         public string? Operator { get; set; }
-        public double? Value { get; set; }
+        public object? Value { get; set; }
         public string? Expression { get; set; }
         public int? Duration { get; set; }
     }

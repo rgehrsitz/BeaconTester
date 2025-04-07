@@ -192,7 +192,7 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                         Type = "comparison",
                         Sensor = condition.Sensor ?? string.Empty,
                         Operator = condition.Operator ?? ">",
-                        Value = condition.Value ?? 0
+                        Value = condition.Value  // We keep the original object value type for comparison conditions
                     };
                     
                 case "expression":
@@ -203,11 +203,25 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                     };
                     
                 case "threshold_over_time":
+                    // Handle conversion from object to double for the threshold
+                    double threshold = 0;
+                    if (condition.Value != null)
+                    {
+                        if (condition.Value is double d)
+                            threshold = d;
+                        else if (condition.Value is int i)
+                            threshold = i;
+                        else if (condition.Value is string s && double.TryParse(s, out double parsed))
+                            threshold = parsed;
+                        else
+                            _logger.Warning("Unsupported value type for threshold_over_time condition: {ValueType}", condition.Value.GetType());
+                    }
+                    
                     return new ThresholdOverTimeCondition
                     {
                         Type = "threshold_over_time",
                         Sensor = condition.Sensor ?? string.Empty,
-                        Threshold = condition.Value ?? 0,
+                        Threshold = threshold,
                         Duration = condition.Duration ?? 0
                     };
                     
