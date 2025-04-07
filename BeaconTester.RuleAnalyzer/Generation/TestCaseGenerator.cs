@@ -83,6 +83,108 @@ namespace BeaconTester.RuleAnalyzer.Generation
                 throw;
             }
         }
+        
+        /// <summary>
+        /// Generates a test value for a sensor based on a condition
+        /// </summary>
+        /// <param name="sensorName">Name of the sensor to generate a value for</param>
+        /// <param name="condition">The condition to use for value generation</param>
+        /// <param name="target">Whether to generate a value that satisfies or fails the condition</param>
+        /// <returns>An appropriate value for the sensor</returns>
+        public object GenerateValueForSensor(string sensorName, ConditionDefinition condition, ValueTarget target)
+        {
+            try
+            {
+                if (condition is ComparisonCondition comparison && comparison.Sensor == sensorName)
+                {
+                    // Direct match - use the value generator to create an appropriate value based on the condition
+                    return _valueGenerator.GenerateValueForCondition(comparison, target);
+                }
+                else if (condition is ThresholdOverTimeCondition temporal && temporal.Sensor == sensorName)
+                {
+                    // Temporal condition - use the value generator to create an appropriate value
+                    return _valueGenerator.GenerateValueForTemporalCondition(temporal, 0, 1, target);
+                }
+                else if (condition is ConditionGroup group)
+                {
+                    // For condition groups, recursively search for a matching condition
+                    var result = FindConditionForSensor(group, sensorName);
+                    if (result != null)
+                    {
+                        if (result is ComparisonCondition foundComparison)
+                        {
+                            return _valueGenerator.GenerateValueForCondition(foundComparison, target);
+                        }
+                        else if (result is ThresholdOverTimeCondition foundTemporal)
+                        {
+                            return _valueGenerator.GenerateValueForTemporalCondition(foundTemporal, 0, 1, target);
+                        }
+                    }
+                }
+                
+                // If we can't find a specific condition for this sensor or can't determine a good value,
+                // use a generic value that's unlikely to trigger edge conditions
+                _logger.Debug("Could not find a specific condition for sensor {Sensor}, using generic value", sensorName);
+                return target == ValueTarget.Positive ? 50.0 : 0.0;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Error generating value for sensor {Sensor}, using fallback value", sensorName);
+                return target == ValueTarget.Positive ? 50.0 : 0.0;
+            }
+        }
+        
+        /// <summary>
+        /// Finds a condition that references a specific sensor in a condition group
+        /// </summary>
+        private ConditionDefinition? FindConditionForSensor(ConditionGroup group, string sensorName)
+        {
+            // First check 'all' conditions
+            foreach (var wrapper in group.All)
+            {
+                if (wrapper.Condition == null)
+                    continue;
+                    
+                if (wrapper.Condition is ComparisonCondition comparison && comparison.Sensor == sensorName)
+                {
+                    return comparison;
+                }
+                else if (wrapper.Condition is ThresholdOverTimeCondition temporal && temporal.Sensor == sensorName)
+                {
+                    return temporal;
+                }
+                else if (wrapper.Condition is ConditionGroup nestedGroup)
+                {
+                    var result = FindConditionForSensor(nestedGroup, sensorName);
+                    if (result != null)
+                        return result;
+                }
+            }
+            
+            // Then check 'any' conditions
+            foreach (var wrapper in group.Any)
+            {
+                if (wrapper.Condition == null)
+                    continue;
+                    
+                if (wrapper.Condition is ComparisonCondition comparison && comparison.Sensor == sensorName)
+                {
+                    return comparison;
+                }
+                else if (wrapper.Condition is ThresholdOverTimeCondition temporal && temporal.Sensor == sensorName)
+                {
+                    return temporal;
+                }
+                else if (wrapper.Condition is ConditionGroup nestedGroup)
+                {
+                    var result = FindConditionForSensor(nestedGroup, sensorName);
+                    if (result != null)
+                        return result;
+                }
+            }
+            
+            return null;
+        }
 
         /// <summary>
         /// Generates a negative test case for a rule
@@ -134,9 +236,24 @@ namespace BeaconTester.RuleAnalyzer.Generation
                             }
                             else
                             {
-                                // For non-boolean outputs, we don't have a clear expectation
-                                // so we'll just expect null (not set)
-                                testCase.Outputs[setValueAction.Key] = null;
+                                // For non-boolean outputs, we need a sensible negative expectation
+                                // For key types we know about, we can make better guesses
+                                if (setValueAction.Key.Contains("high") || 
+                                    setValueAction.Key.Contains("normal") ||
+                                    setValueAction.Key.Contains("alert") ||
+                                    setValueAction.Key.Contains("alarm") ||
+                                    setValueAction.Key.Contains("enabled") ||
+                                    setValueAction.Key.Contains("active") ||
+                                    setValueAction.Key.Contains("detected"))
+                                {
+                                    // For boolean-looking outputs, expect false in negative case
+                                    testCase.Outputs[setValueAction.Key] = false;
+                                }
+                                else
+                                {
+                                    // Otherwise use null (not set)
+                                    testCase.Outputs[setValueAction.Key] = null;
+                                }
                             }
                         }
                     }
@@ -323,7 +440,7 @@ namespace BeaconTester.RuleAnalyzer.Generation
                         return 1013.0;
                 }
 
-                // For mathematical expressions, try a default value
+                // For mathematical expressions involving standard inputs, make a realistic estimation
                 if (
                     expression.Contains("+")
                     || expression.Contains("-")
@@ -331,7 +448,10 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     || expression.Contains("/")
                 )
                 {
-                    return 42.0; // Default numeric result
+                    // We shouldn't try to parse complex expressions here - that would require a
+                    // full expression evaluator. Instead, return a reasonable numeric value
+                    // that's closer to what most formulas might generate.
+                    return 10.0; // More reasonable default than 42.0
                 }
             }
 

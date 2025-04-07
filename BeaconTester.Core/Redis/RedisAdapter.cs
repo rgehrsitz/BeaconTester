@@ -92,8 +92,13 @@ namespace BeaconTester.Core.Redis
                     switch (input.Format)
                     {
                         case RedisDataFormat.String:
-                            await _db.StringSetAsync(key, input.Value.ToString());
-                            _logger.Debug("Set string {Key} = {Value}", key, input.Value);
+                            // Special handling for boolean values to ensure consistent representation
+                            string value = input.Value is bool boolValue
+                                ? boolValue.ToString() // "True" or "False" with capital first letter
+                                : input.Value.ToString();
+                                
+                            await _db.StringSetAsync(key, value);
+                            _logger.Debug("Set string {Key} = {Value}", key, value);
                             break;
 
                         case RedisDataFormat.Hash:
@@ -184,22 +189,60 @@ namespace BeaconTester.Core.Redis
 
                     if (expectation.TimeoutMs.HasValue && expectation.TimeoutMs.Value > 0)
                     {
-                        // Implement waiting logic with timeout
+                        // Implement waiting logic with timeout and exponential backoff
                         DateTime start = DateTime.UtcNow;
                         DateTime end = start.AddMilliseconds(expectation.TimeoutMs.Value);
-                        int pollingInterval = expectation.PollingIntervalMs ?? 100;
+                        int basePollingInterval = expectation.PollingIntervalMs ?? 100;
+                        int currentPollingInterval = basePollingInterval;
+                        int maxPollingInterval = Math.Min(expectation.TimeoutMs.Value / 2, 2000); // Max 2 seconds or half timeout
+                        int attemptCount = 0;
+                        
+                        _logger.Debug("Starting polling for {Key} with timeout {Timeout}ms and base interval {BaseInterval}ms", 
+                            expectation.Key, expectation.TimeoutMs.Value, basePollingInterval);
 
                         while (DateTime.UtcNow < end)
                         {
+                            attemptCount++;
                             (success, actualValue) = await CheckSingleExpectationAsync(
                                 expectation,
                                 key,
                                 field
                             );
+                            
                             if (success)
+                            {
+                                _logger.Debug("Expectation for {Key} met after {AttemptCount} attempts in {ElapsedTime}ms", 
+                                    expectation.Key, attemptCount, (DateTime.UtcNow - start).TotalMilliseconds);
                                 break;
+                            }
 
-                            await Task.Delay(pollingInterval);
+                            // Calculate next polling interval with exponential backoff (up to maxPollingInterval)
+                            // Start with base interval, then increase by 50% each time
+                            if (attemptCount > 1) 
+                            {
+                                currentPollingInterval = Math.Min(
+                                    (int)(currentPollingInterval * 1.5), 
+                                    maxPollingInterval
+                                );
+                            }
+                            
+                            var remainingTime = (end - DateTime.UtcNow).TotalMilliseconds;
+                            if (remainingTime <= 0)
+                                break;
+                                
+                            // Don't wait longer than remaining time
+                            int waitTime = (int)Math.Min(currentPollingInterval, remainingTime);
+                            
+                            _logger.Debug("Attempt {AttemptCount} for {Key} failed, waiting {WaitTime}ms before retry", 
+                                attemptCount, expectation.Key, waitTime);
+                                
+                            await Task.Delay(waitTime);
+                        }
+                        
+                        if (!success)
+                        {
+                            _logger.Debug("Expectation for {Key} not met after {AttemptCount} attempts and {Timeout}ms", 
+                                expectation.Key, attemptCount, expectation.TimeoutMs.Value);
                         }
                     }
                     else
@@ -267,23 +310,25 @@ namespace BeaconTester.Core.Redis
                                     actualValue = doubleVal;
                                 }
                             }
-                            else if (expectation.Expected is bool)
+                            // Always attempt to convert string values that look like booleans to actual booleans
+                            // This helps handle inconsistencies between test expectations and actual results
+                            string stringBoolValue = stringValue.ToString() ?? string.Empty;
+                            string normalizedBoolValue = stringBoolValue.Trim().ToLowerInvariant();
+                            
+                            if (normalizedBoolValue == "true" || normalizedBoolValue == "1" || normalizedBoolValue == "yes")
                             {
-                                string stringVal = stringValue.ToString() ?? string.Empty;
-                                string normalizedValue = stringVal.Trim().ToLowerInvariant();
-                                
-                                if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes")
-                                {
-                                    actualValue = true;
-                                }
-                                else if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no")
-                                {
-                                    actualValue = false;
-                                }
-                                else if (bool.TryParse(stringVal, out var boolVal))
-                                {
-                                    actualValue = boolVal;
-                                }
+                                _logger.Debug("Converting string '{RawValue}' to boolean: true", stringBoolValue);
+                                actualValue = true;
+                            }
+                            else if (normalizedBoolValue == "false" || normalizedBoolValue == "0" || normalizedBoolValue == "no")
+                            {
+                                _logger.Debug("Converting string '{RawValue}' to boolean: false", stringBoolValue);
+                                actualValue = false;
+                            }
+                            else if (bool.TryParse(stringBoolValue, out var boolVal))
+                            {
+                                _logger.Debug("Parsed '{RawValue}' as boolean: {BoolVal}", stringBoolValue, boolVal);
+                                actualValue = boolVal;
                             }
                         }
                         break;
@@ -381,21 +426,129 @@ namespace BeaconTester.Core.Redis
                     }
                 }
 
+                // Log detailed type information for debugging
+                _logger.Debug("Comparing value - Key: {Key}, Expected Type: {ExpectedType}, Value: {ExpectedValue}, Actual Type: {ActualType}, Value: {ActualValue}, Validator: {Validator}",
+                    expectation.Key,
+                    expectation.Expected?.GetType().Name ?? "null",
+                    expectation.Expected,
+                    actualValue?.GetType().Name ?? "null",
+                    actualValue,
+                    validatorType);
+                    
+                // Handle expected value as JsonElement 
+                if (expectation.Expected?.GetType().Name == "JsonElement")
+                {
+                    var jsonElement = (System.Text.Json.JsonElement)expectation.Expected;
+                    object? convertedValue = null;
+                    
+                    switch (jsonElement.ValueKind)
+                    {
+                        case System.Text.Json.JsonValueKind.True:
+                            convertedValue = true;
+                            break;
+                            
+                        case System.Text.Json.JsonValueKind.False:
+                            convertedValue = false;
+                            break;
+                            
+                        case System.Text.Json.JsonValueKind.Number:
+                            // Try to maintain the most appropriate numeric type
+                            if (jsonElement.TryGetInt32(out int intValue))
+                            {
+                                convertedValue = intValue;
+                            }
+                            else if (jsonElement.TryGetInt64(out long longValue))
+                            {
+                                convertedValue = longValue; 
+                            }
+                            else if (jsonElement.TryGetDouble(out double doubleValue))
+                            {
+                                convertedValue = doubleValue;
+                            }
+                            else
+                            {
+                                // Fall back to string if parsing fails
+                                convertedValue = jsonElement.ToString();
+                            }
+                            break;
+                            
+                        case System.Text.Json.JsonValueKind.String:
+                            string strValue = jsonElement.GetString() ?? "";
+                            
+                            // Apply additional type conversions based on validator type
+                            if (validatorType == "boolean")
+                            {
+                                if (bool.TryParse(strValue, out var boolVal))
+                                {
+                                    convertedValue = boolVal;
+                                }
+                                else if (strValue.Trim().ToLowerInvariant() == "true" || 
+                                         strValue == "1" || strValue == "yes")
+                                {
+                                    convertedValue = true;
+                                }
+                                else if (strValue.Trim().ToLowerInvariant() == "false" || 
+                                         strValue == "0" || strValue == "no")
+                                {
+                                    convertedValue = false;
+                                }
+                                else
+                                {
+                                    convertedValue = strValue;
+                                }
+                            }
+                            else if (validatorType == "numeric" && double.TryParse(strValue, out var numVal))
+                            {
+                                convertedValue = numVal;
+                            }
+                            else
+                            {
+                                convertedValue = strValue;
+                            }
+                            break;
+                            
+                        case System.Text.Json.JsonValueKind.Object:
+                        case System.Text.Json.JsonValueKind.Array:
+                            // For complex objects, keep as JsonElement for now
+                            // They will be compared as strings via ToString()
+                            convertedValue = jsonElement;
+                            break;
+                            
+                        case System.Text.Json.JsonValueKind.Null:
+                            convertedValue = null;
+                            break;
+                            
+                        default:
+                            convertedValue = jsonElement.ToString();
+                            break;
+                    }
+                    
+                    expectation.Expected = convertedValue;
+                    
+                    _logger.Debug("Converted JsonElement ({Kind}) to {Type}: {Value}", 
+                        jsonElement.ValueKind,
+                        expectation.Expected?.GetType().Name ?? "null", 
+                        expectation.Expected);
+                }
+
                 // Perform comparison based on validator type
                 switch (validatorType)
                 {
                     case "boolean":
                         success = CompareBooleans(expectation.Expected, actualValue);
+                        _logger.Debug("Boolean comparison result: {Success}", success);
                         break;
 
                     case "numeric":
                         double tolerance = expectation.Tolerance ?? 0.0001;
                         success = CompareNumbers(expectation.Expected, actualValue, tolerance);
+                        _logger.Debug("Numeric comparison result: {Success}", success);
                         break;
 
                     case "string":
                     default:
                         success = CompareStrings(expectation.Expected, actualValue);
+                        _logger.Debug("String comparison result: {Success}", success);
                         break;
                 }
 
@@ -698,14 +851,26 @@ namespace BeaconTester.Core.Redis
             {
                 var endpoints = _redis.GetEndPoints();
                 var server = _redis.GetServer(endpoints.First());
-                var keys = server.Keys(pattern: pattern);
-
-                foreach (var key in keys)
+                var keys = server.Keys(pattern: pattern).ToList();
+                
+                if (keys.Count > 0)
                 {
-                    await _db.KeyDeleteAsync(key);
+                    _logger.Debug("Found {KeyCount} keys matching pattern {Pattern}: {Keys}", 
+                        keys.Count, pattern, string.Join(", ", keys));
+                        
+                    foreach (var key in keys)
+                    {
+                        string value = await _db.StringGetAsync(key);
+                        _logger.Debug("Clearing key {Key} with value {Value}", key, value);
+                        await _db.KeyDeleteAsync(key);
+                    }
+                    
+                    _logger.Information("Cleared {KeyCount} keys matching pattern: {Pattern}", keys.Count, pattern);
                 }
-
-                _logger.Information("Cleared keys matching pattern: {Pattern}", pattern);
+                else
+                {
+                    _logger.Debug("No keys found matching pattern: {Pattern}", pattern);
+                }
             }
             catch (Exception ex)
             {

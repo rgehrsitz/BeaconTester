@@ -205,7 +205,7 @@ namespace BeaconTester.RuleAnalyzer.Generation
         /// <summary>
         /// Generates a value for a specific condition
         /// </summary>
-        private object GenerateValueForCondition(ConditionDefinition condition, ValueTarget target)
+        public object GenerateValueForCondition(ConditionDefinition condition, ValueTarget target)
         {
             if (condition is ComparisonCondition comparison)
             {

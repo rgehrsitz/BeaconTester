@@ -120,3 +120,4 @@ Properties/launchSettings.json
 BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
 BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
 BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.dgspec.json
+/TestScenarios/
