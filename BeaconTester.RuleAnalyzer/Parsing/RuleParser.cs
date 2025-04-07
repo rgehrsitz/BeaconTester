@@ -101,6 +101,32 @@ namespace BeaconTester.RuleAnalyzer.Parsing
                                 ruleDef.Conditions.Any.Add(wrapper);
                             }
                         }
+                        
+                        // Detect invalid DSL constructs like 'always: true'
+                        if (rule.Conditions.All == null && rule.Conditions.Any == null)
+                        {
+                            if (rule.Conditions.Always != null)
+                            {
+                                _logger.Warning("Rule {RuleName} uses invalid 'always: true' syntax which is not part of the valid Pulsar DSL. Creating an 'all' condition group that simulates always-true behavior for testing purposes.", rule.Name);
+                                
+                                // Create a condition that's always true to simulate 'always: true' 
+                                // This helps with test generation but warns about invalid syntax
+                                var alwaysTrueCondition = new ExpressionCondition
+                                {
+                                    Type = "expression",
+                                    Expression = "true"  // This will always evaluate to true
+                                };
+                                
+                                var wrapper = new ConditionWrapper { Condition = alwaysTrueCondition };
+                                ruleDef.Conditions.All.Add(wrapper);
+                            }
+                            else
+                            {
+                                _logger.Warning("Rule {RuleName} has invalid condition format - missing 'all' or 'any' condition groups. Using empty condition group instead.", rule.Name);
+                                // Create a default condition group that will always evaluate to true
+                                ruleDef.Conditions = new ConditionGroup();
+                            }
+                        }
                     }
 
                     // Convert actions

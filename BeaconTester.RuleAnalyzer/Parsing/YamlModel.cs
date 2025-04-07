@@ -32,6 +32,10 @@ namespace BeaconTester.RuleAnalyzer.Parsing
     {
         public List<ConditionItem>? All { get; set; }
         public List<ConditionItem>? Any { get; set; }
+        
+        // To detect invalid constructs like 'always: true'
+        [YamlMember(Alias = "always")]
+        public object? Always { get; set; }
     }
 
     /// <summary>
