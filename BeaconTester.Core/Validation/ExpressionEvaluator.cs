@@ -109,6 +109,15 @@ namespace BeaconTester.Core.Validation
             if (expression.Trim().Equals("false", StringComparison.OrdinalIgnoreCase))
                 return "false";
 
+            // Handle string template expressions (expressions with double quotes)
+            // These are typically string concatenation templates
+            bool isStringTemplate = false;
+            if (expression.Contains("\""))
+            {
+                isStringTemplate = true;
+                _logger.Debug("Detected string template: {Expression}", expression);
+            }
+
             // Replace input references with dictionary lookups
             var translatedExpression = Regex.Replace(expression, @"(input:[a-zA-Z0-9_]+)", match =>
             {
@@ -195,6 +204,70 @@ namespace BeaconTester.Core.Validation
                 .Replace(" and ", " && ")
                 .Replace(" or ", " || ")
                 .Replace(" not ", " ! ");
+                
+            // For string literals and templates, special handling to avoid escaping issues
+            if (expression.Contains("\""))
+            {
+                try
+                {
+                    // Special handling for string literals and string concatenation expressions
+                    if (expression.StartsWith("\"") || expression.Contains("\"") && expression.Contains("+"))
+                    {
+                        // Replace any escaped quotes with temporary markers
+                        var processedExpr = expression.Replace("\\\"", "##QUOTE##");
+                        
+                        // For string concat expressions, manually evaluate them
+                        if (processedExpr.Contains("+"))
+                        {
+                            var parts = processedExpr.Split('+');
+                            var resultParts = new List<string>();
+                            
+                            foreach (var part in parts)
+                            {
+                                var trimmedPart = part.Trim();
+                                
+                                // Handle string literals
+                                if (trimmedPart.StartsWith("\"") && trimmedPart.EndsWith("\""))
+                                {
+                                    // Extract string content without quotes
+                                    var content = trimmedPart.Substring(1, trimmedPart.Length - 2);
+                                    // Restore any escaped quotes
+                                    content = content.Replace("##QUOTE##", "\"");
+                                    resultParts.Add($"\"{content}\"");
+                                }
+                                // Handle input/state/output references
+                                else if (Regex.IsMatch(trimmedPart, @"(input:|state:|output:)[a-zA-Z0-9_]+"))
+                                {
+                                    // Replace with ToString() call to handle concatenation properly
+                                    var match = Regex.Match(trimmedPart, @"(input:|state:|output:)[a-zA-Z0-9_]+");
+                                    if (match.Success)
+                                    {
+                                        string key = match.Groups[0].Value;
+                                        resultParts.Add($"GetString(\"{key}\")");
+                                    }
+                                    else
+                                    {
+                                        resultParts.Add(trimmedPart);
+                                    }
+                                }
+                                else
+                                {
+                                    resultParts.Add(trimmedPart);
+                                }
+                            }
+                            
+                            // Create a string concatenation expression with proper conversions
+                            var stringConcatExpression = string.Join(" + ", resultParts);
+                            _logger.Debug("String concatenation expression: {Expression}", stringConcatExpression);
+                            return stringConcatExpression;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Error processing string template, falling back to normal evaluation");
+                }
+            }
 
             return translatedExpression;
         }

@@ -1,0 +1,59 @@
+{
+  "results": [
+    {
+      "name": "HighTemperatureRuleBasicTest",
+      "success": false,
+      "duration": "00:00:02.5723734",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:02.5255820",
+          "expectationResults": [
+            {
+              "key": "output:high_temperature_alert",
+              "success": false,
+              "expected": true,
+              "actual": false,
+              "details": "Expected: True, Actual: False"
+            },
+            {
+              "key": "output:last_alert_time",
+              "success": false,
+              "expected": "2025-04-08T20:25:32.3752639Z",
+              "actual": "initial_value",
+              "details": "Expected: 2025-04-08T20:25:32.3752639Z, Actual: initial_value"
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-04-08T21:35:19.6053321Z",
+      "endTime": "2025-04-08T21:35:22.1777055Z"
+    },
+    {
+      "name": "HeatIndexCalculationRuleBasicTest",
+      "success": false,
+      "duration": "00:00:01.5220805",
+      "stepResults": [
+        {
+          "success": false,
+          "duration": "00:00:01.5129859",
+          "expectationResults": [
+            {
+              "key": "output:heat_index",
+              "success": false,
+              "expected": 13.580000000000002,
+              "actual": false,
+              "details": "Expected: 13.580000000000002, Actual: False"
+            }
+          ],
+          "errorMessage": null
+        }
+      ],
+      "errorMessage": null,
+      "startTime": "2025-04-08T21:35:22.1783996Z",
+      "endTime": "2025-04-08T21:35:23.7004801Z"
+    }
+  ]
+}

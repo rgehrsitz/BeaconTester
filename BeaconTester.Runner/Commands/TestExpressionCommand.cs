@@ -84,6 +84,44 @@ namespace BeaconTester.Runner.Commands
                     logger.Information("Using default input values");
                 }
 
+                // Handle string templates directly
+                if (expression.Contains("\"") && expression.Contains("+"))
+                {
+                    logger.Information("Directly evaluating string template expression");
+                    string stringResult = "";
+                    var parts = expression.Split('+');
+                    foreach (var part in parts)
+                    {
+                        var trimmedPart = part.Trim();
+                        
+                        // Handle string literals
+                        if (trimmedPart.StartsWith("\"") && trimmedPart.EndsWith("\""))
+                        {
+                            stringResult += trimmedPart.Substring(1, trimmedPart.Length - 2);
+                        }
+                        // Handle input references
+                        else if (trimmedPart.Contains("input:"))
+                        {
+                            var key = trimmedPart.Trim();
+                            if (inputsDict.TryGetValue(key, out var value))
+                            {
+                                stringResult += value?.ToString() ?? "null";
+                            }
+                            else
+                            {
+                                stringResult += $"{{{key}}}";
+                            }
+                        }
+                        else
+                        {
+                            stringResult += trimmedPart;
+                        }
+                    }
+                    
+                    logger.Information("Result: {Result} (Directly Evaluated String)", stringResult);
+                    return 0;
+                }
+
                 // Create an expression evaluator and evaluate the expression
                 var evaluator = new ExpressionEvaluator(logger);
                 var result = await evaluator.EvaluateAsync(expression, inputsDict);

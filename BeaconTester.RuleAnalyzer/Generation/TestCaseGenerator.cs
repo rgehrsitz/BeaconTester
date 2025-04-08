@@ -378,6 +378,58 @@ namespace BeaconTester.RuleAnalyzer.Generation
         }
 
         /// <summary>
+        /// Evaluates a string template expression directly
+        /// </summary>
+        private string? EvaluateStringTemplate(string expression, Dictionary<string, object?> inputs)
+        {
+            try
+            {
+                string result = "";
+                var parts = expression.Split('+');
+                foreach (var part in parts)
+                {
+                    var trimmedPart = part.Trim();
+                    
+                    // Handle string literals
+                    if (trimmedPart.StartsWith("\"") && trimmedPart.EndsWith("\""))
+                    {
+                        result += trimmedPart.Substring(1, trimmedPart.Length - 2);
+                    }
+                    // Handle input references
+                    else if (trimmedPart.StartsWith("input:"))
+                    {
+                        var key = trimmedPart.Trim();
+                        if (inputs.TryGetValue(key, out var value))
+                        {
+                            result += value?.ToString() ?? "null";
+                        }
+                        else
+                        {
+                            // Use a default value based on the sensor name
+                            if (key == "input:temperature")
+                                result += "35";
+                            else if (key == "input:humidity") 
+                                result += "75";
+                            else
+                                result += "42"; // Generic default
+                        }
+                    }
+                    else
+                    {
+                        result += trimmedPart;
+                    }
+                }
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Error evaluating string template: {Expression}", expression);
+                return null;
+            }
+        }
+        
+        /// <summary>
         /// Determines the expected output value from an action
         /// </summary>
         private object DetermineOutputValue(SetValueAction action, Dictionary<string, object>? inputValues = null)
@@ -439,12 +491,35 @@ namespace BeaconTester.RuleAnalyzer.Generation
                         inputs["input:count"] = 5;           // Count of 5 items
                     }
 
-                    // Evaluate the expression
-                    var result = _expressionEvaluator.EvaluateAsync(expression, inputs).GetAwaiter().GetResult();
-                    if (result != null)
+                    // Check if it's a string template expression and handle specially
+                    if (expression.Contains("\"") && expression.Contains("+"))
                     {
-                        _logger.Debug("Successfully evaluated expression '{Expression}' to {Result}", expression, result);
-                        return result;
+                        // Make sure we're using the input values from the test case if available
+                        Dictionary<string, object?> templateInputs = new Dictionary<string, object?>(inputs);
+                        if (inputValues != null)
+                        {
+                            foreach (var kvp in inputValues)
+                            {
+                                templateInputs[kvp.Key] = kvp.Value;
+                            }
+                        }
+                        
+                        var stringResult = EvaluateStringTemplate(expression, templateInputs);
+                        if (stringResult != null)
+                        {
+                            _logger.Debug("Successfully evaluated string template '{Expression}' to {Result}", expression, stringResult);
+                            return stringResult;
+                        }
+                    }
+                    else
+                    {
+                        // For non-string templates, use the expression evaluator
+                        var result = _expressionEvaluator.EvaluateAsync(expression, inputs).GetAwaiter().GetResult();
+                        if (result != null)
+                        {
+                            _logger.Debug("Successfully evaluated expression '{Expression}' to {Result}", expression, result);
+                            return result;
+                        }
                     }
                 }
                 catch (Exception ex)
