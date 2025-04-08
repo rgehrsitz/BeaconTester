@@ -85,6 +85,7 @@ log*.txt
 /Examples/BasicRules/logs/
 /Examples/BasicRules/output/
 /TestBeacon/
+/BeaconTester.Templates/bin/
 
 # Pulsar-specific output directories
 /TestOutput/
@@ -121,3 +122,17 @@ BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
 BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.g.props
 BeaconTester.RuleAnalyzer/obj/BeaconTester.RuleAnalyzer.csproj.nuget.dgspec.json
 /TestScenarios/
+
+BeaconTester.Templates/obj/
+
+BeaconTester.Runner/bin/
+
+BeaconTester.Runner/obj/
+
+BeaconTester.Core/bin/
+
+BeaconTester.Core/obj/
+
+BeaconTester.RuleAnalyzer/bin/
+
+BeaconTester.RuleAnalyzer/obj/

@@ -35,6 +35,7 @@ namespace BeaconTester.Runner
                 rootCommand.AddCommand(new GenerateCommand().Create());
                 rootCommand.AddCommand(new RunCommand().Create());
                 rootCommand.AddCommand(new ReportCommand().Create());
+                rootCommand.AddCommand(new TestExpressionCommand().Create());
 
                 // Execute command
                 return await rootCommand.InvokeAsync(args);

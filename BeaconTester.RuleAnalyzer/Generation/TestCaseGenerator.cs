@@ -1,4 +1,5 @@
 using BeaconTester.Core.Models;
+using BeaconTester.Core.Validation;
 using BeaconTester.RuleAnalyzer.Analysis;
 using BeaconTester.RuleAnalyzer.Parsing;
 using Serilog;
@@ -13,6 +14,7 @@ namespace BeaconTester.RuleAnalyzer.Generation
         private readonly ILogger _logger;
         private readonly ConditionAnalyzer _conditionAnalyzer;
         private readonly ValueGenerator _valueGenerator;
+        private readonly ExpressionEvaluator _expressionEvaluator;
 
         /// <summary>
         /// Creates a new test case generator
@@ -22,6 +24,7 @@ namespace BeaconTester.RuleAnalyzer.Generation
             _logger = logger.ForContext<TestCaseGenerator>();
             _conditionAnalyzer = new ConditionAnalyzer(logger);
             _valueGenerator = new ValueGenerator(logger);
+            _expressionEvaluator = new ExpressionEvaluator(logger);
         }
 
         /// <summary>
@@ -65,7 +68,9 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     {
                         if (setValueAction.Key.StartsWith("output:"))
                         {
-                            var value = DetermineOutputValue(setValueAction);
+                            // Pass the generated inputs to the output value determination
+                            // so expressions can be evaluated with the actual test values
+                            var value = DetermineOutputValue(setValueAction, testCase.Inputs);
                             testCase.Outputs[setValueAction.Key] = value;
                         }
                     }
@@ -375,7 +380,7 @@ namespace BeaconTester.RuleAnalyzer.Generation
         /// <summary>
         /// Determines the expected output value from an action
         /// </summary>
-        private object DetermineOutputValue(SetValueAction action)
+        private object DetermineOutputValue(SetValueAction action, Dictionary<string, object>? inputValues = null)
         {
             // If a static value is provided, use that
             if (action.Value != null)
@@ -396,58 +401,77 @@ namespace BeaconTester.RuleAnalyzer.Generation
             // If a value expression is provided, try to evaluate it
             if (!string.IsNullOrEmpty(action.ValueExpression))
             {
-                var expression = action.ValueExpression.ToLowerInvariant();
+                var expression = action.ValueExpression;
 
-                // Handle simple expressions
-                if (expression == "true")
+                // Handle simple expressions directly
+                if (expression.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))
                     return true;
-                if (expression == "false")
+                if (expression.Trim().Equals("false", StringComparison.OrdinalIgnoreCase))
                     return false;
-                if (expression == "now()")
+                if (expression.Trim().Equals("now()", StringComparison.OrdinalIgnoreCase))
                     return DateTime.UtcNow.ToString("o");
 
                 try
                 {
-                    // Check if we can actually evaluate this expression
-                    // For a simple expression like "input:temperature * 0.8 + input:humidity * 0.2"
-                    // We can use the test case inputs to calculate a more accurate expected value
-                    if (expression.Contains("input:temperature") && expression.Contains("input:humidity"))
+                    // Set up test input values to use with our expression evaluator
+                    var inputs = new Dictionary<string, object?>();
+                    
+                    // Use provided input values if available
+                    if (inputValues != null)
                     {
-                        // For the specific formula in the comfort index rule, apply the actual formula
-                        if (expression.Contains("input:temperature") && expression.Contains("input:humidity") && 
-                            expression.Contains("*") && expression.Contains("+"))
+                        foreach (var kvp in inputValues)
                         {
-                            // Use consistent inputs for our computation
-                            double temp = 10.0;  // Same value we're using in tests
-                            double humidity = 10.0;
-                            
-                            // Compute the actual expected value
-                            return temp * 0.8 + humidity * 0.2;
+                            inputs[kvp.Key] = kvp.Value;
                         }
+                    }
+                    else
+                    {
+                        // If no inputs provided, use sensible defaults for known key patterns
+                        // These are based on common sensor names and ranges
+                        inputs["input:temperature"] = 25.0;  // Room temperature
+                        inputs["input:humidity"] = 50.0;     // Medium humidity
+                        inputs["input:pressure"] = 1013.0;   // Standard atmospheric pressure
+                        inputs["input:battery"] = 80.0;      // Good battery level
+                        inputs["input:light"] = 500.0;       // Medium light level
+                        inputs["input:motion"] = true;       // Motion detected
+                        inputs["input:status"] = "active";   // Active status
+                        inputs["input:level"] = 75.0;        // Level at 75%
+                        inputs["input:count"] = 5;           // Count of 5 items
+                    }
+
+                    // Evaluate the expression
+                    var result = _expressionEvaluator.EvaluateAsync(expression, inputs).GetAwaiter().GetResult();
+                    if (result != null)
+                    {
+                        _logger.Debug("Successfully evaluated expression '{Expression}' to {Result}", expression, result);
+                        return result;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "Error evaluating expression {Expression}", expression);
+                    _logger.Warning(ex, "Error evaluating expression {Expression}, falling back to defaults", expression);
                 }
 
-                // For mathematical expressions, use the default of 10.0
-                // or try to generate a more realistic expectation
+                // If we couldn't evaluate the expression, fall back to reasonable defaults
+                // based on the expression pattern
+                
+                // For expressions that look like math operations
                 if (expression.Contains("+") || expression.Contains("-") || 
                     expression.Contains("*") || expression.Contains("/"))
                 {
-                    return 10.0; 
+                    return 42.0; // A more interesting default than 10.0
                 }
             }
 
             // For boolean output keys, default to true
             if (action.Key.EndsWith("_enabled") || action.Key.EndsWith("_status") || 
-                action.Key.EndsWith("_active") || action.Key.EndsWith("_normal"))
+                action.Key.EndsWith("_active") || action.Key.EndsWith("_alert") ||
+                action.Key.EndsWith("_alarm") || action.Key.EndsWith("_normal"))
             {
                 return true;
             }
 
-            // Default to a numeric value for generic outputs
+            // Default to a reasonable numeric value for generic outputs
             return 50.0;
         }
     }
