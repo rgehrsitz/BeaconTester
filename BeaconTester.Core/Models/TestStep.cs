@@ -21,9 +21,16 @@ namespace BeaconTester.Core.Models
         public List<TestInput> Inputs { get; set; } = new List<TestInput>();
 
         /// <summary>
-        /// Delay in milliseconds after sending inputs before checking expectations
+        /// Delay in milliseconds after sending inputs before checking expectations.
+        /// If specified, this takes precedence over DelayMultiplier.
         /// </summary>
         public int Delay { get; set; } = 0;
+
+        /// <summary>
+        /// Number of Beacon cycles to wait after sending inputs before checking expectations.
+        /// This is used only if Delay is 0, and provides a more cycle-aware alternative.
+        /// </summary>
+        public int? DelayMultiplier { get; set; } = null;
 
         /// <summary>
         /// The expected outcomes to verify

@@ -15,6 +15,10 @@ namespace BeaconTester.RuleAnalyzer.Generation
         private readonly ConditionAnalyzer _conditionAnalyzer;
         private readonly ValueGenerator _valueGenerator;
         private readonly ExpressionEvaluator _expressionEvaluator;
+        
+        // Store all comparison and threshold conditions from parsed rules to derive appropriate test values
+        private List<ComparisonCondition> _comparisonConditions = new List<ComparisonCondition>();
+        private List<ThresholdOverTimeCondition> _thresholdConditions = new List<ThresholdOverTimeCondition>();
 
         /// <summary>
         /// Creates a new test case generator
@@ -27,6 +31,58 @@ namespace BeaconTester.RuleAnalyzer.Generation
             _expressionEvaluator = new ExpressionEvaluator(logger);
         }
 
+        /// <summary>
+        /// Collect all conditions from a rule for domain-agnostic test value generation
+        /// </summary>
+        private void CollectConditionsFromRule(RuleDefinition rule)
+        {
+            if (rule.Conditions == null) return;
+            
+            // Process the condition hierarchy recursively
+            ProcessConditionDefinition(rule.Conditions);
+            
+            _logger.Debug("Collected {ComparisonCount} comparison conditions and {ThresholdCount} threshold conditions from rule {RuleName}",
+                _comparisonConditions.Count, _thresholdConditions.Count, rule.Name);
+        }
+        
+        /// <summary>
+        /// Process a condition definition recursively to collect all conditions
+        /// </summary>
+        private void ProcessConditionDefinition(ConditionDefinition conditionDef)
+        {
+            // Handle different types of conditions
+            if (conditionDef is ComparisonCondition comparison)
+            {
+                // Collect comparison condition
+                _comparisonConditions.Add(comparison);
+            }
+            else if (conditionDef is ThresholdOverTimeCondition threshold)
+            {
+                // Collect threshold condition
+                _thresholdConditions.Add(threshold);
+            }
+            else if (conditionDef is ConditionGroup group)
+            {
+                // Process all conditions in 'all' list
+                foreach (var wrapper in group.All)
+                {
+                    if (wrapper.Condition != null)
+                    {
+                        ProcessConditionDefinition(wrapper.Condition);
+                    }
+                }
+                
+                // Process all conditions in 'any' list
+                foreach (var wrapper in group.Any)
+                {
+                    if (wrapper.Condition != null)
+                    {
+                        ProcessConditionDefinition(wrapper.Condition);
+                    }
+                }
+            }
+        }
+        
         /// <summary>
         /// Generates a basic test case for a rule
         /// </summary>
@@ -43,6 +99,9 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     _logger.Warning("Rule {RuleName} has no conditions", rule.Name);
                     return testCase;
                 }
+                
+                // Collect conditions for domain-agnostic test value derivation
+                CollectConditionsFromRule(rule);
 
                 // Extract all sensors from conditions
                 var sensors = _conditionAnalyzer.ExtractSensors(rule.Conditions);
@@ -514,17 +573,115 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     }
                     else
                     {
-                        // If no inputs provided, use sensible defaults for known key patterns
-                        // These are based on common sensor names and ranges
-                        inputs["input:temperature"] = 25.0;  // Room temperature
-                        inputs["input:humidity"] = 50.0;     // Medium humidity
-                        inputs["input:pressure"] = 1013.0;   // Standard atmospheric pressure
-                        inputs["input:battery"] = 80.0;      // Good battery level
-                        inputs["input:light"] = 500.0;       // Medium light level
-                        inputs["input:motion"] = true;       // Motion detected
-                        inputs["input:status"] = "active";   // Active status
-                        inputs["input:level"] = 75.0;        // Level at 75%
-                        inputs["input:count"] = 5;           // Count of 5 items
+                        // Extract needed inputs from the expression in a domain-agnostic way
+                        var neededInputs = new HashSet<string>();
+                        
+                        // Find potential input:xxx patterns in the expression
+                        if (!string.IsNullOrEmpty(expression))
+                        {
+                            var matches = System.Text.RegularExpressions.Regex.Matches(
+                                expression, "input:[a-zA-Z0-9_]+");
+                            
+                            foreach (System.Text.RegularExpressions.Match match in matches)
+                            {
+                                neededInputs.Add(match.Value);
+                            }
+                        }
+                        
+                        // Look up sensible values based on actual rule conditions
+                        foreach (var sensorName in neededInputs)
+                        {
+                            // Find the condition that uses this sensor (if any)
+                            // Try comparison conditions first, then threshold conditions
+                            ComparisonCondition? comparisonCondition = _comparisonConditions
+                                .FirstOrDefault(c => c.Sensor == sensorName);
+                            
+                            ThresholdOverTimeCondition? thresholdCondition = _thresholdConditions
+                                .FirstOrDefault(c => c.Sensor == sensorName);
+                            
+                            // Use the appropriate condition to derive test values in a domain-agnostic way
+                            if (comparisonCondition != null)
+                            {
+                                // For comparison conditions, derive value based on operator and threshold
+                                if (comparisonCondition.Value != null)
+                                {
+                                    // Extract type information to determine how to generate values
+                                    var type = comparisonCondition.Value.GetType();
+                                    var isNumeric = type == typeof(int) || type == typeof(double) || type == typeof(float);
+                                    var isBoolean = type == typeof(bool);
+                                    var isString = type == typeof(string);
+                                    
+                                    if (comparisonCondition.Operator == "greater_than" && isNumeric)
+                                    {
+                                        // Use value slightly above threshold for 'greater than'
+                                        inputs[sensorName] = Convert.ToDouble(comparisonCondition.Value) + 1;
+                                    }
+                                    else if (comparisonCondition.Operator == "less_than" && isNumeric)
+                                    {
+                                        // Use value slightly below threshold for 'less than'
+                                        inputs[sensorName] = Math.Max(0, Convert.ToDouble(comparisonCondition.Value) - 1);
+                                    }
+                                    else if (comparisonCondition.Operator == "equal_to")
+                                    {
+                                        // For equality, use exact match with correct type preservation
+                                        inputs[sensorName] = comparisonCondition.Value;
+                                    }
+                                    else if (comparisonCondition.Operator == "not_equal_to" && isBoolean)
+                                    {
+                                        // For boolean not equal, use opposite value
+                                        inputs[sensorName] = !(bool)comparisonCondition.Value;
+                                    }
+                                    else
+                                    {
+                                        // Default fallback - use the condition value itself
+                                        inputs[sensorName] = comparisonCondition.Value;
+                                    }
+                                }
+                            }
+                            else if (thresholdCondition != null)
+                            {
+                                // For temporal conditions, use value that satisfies the threshold
+                                if (thresholdCondition.Threshold != null)
+                                {
+                                    // Extract threshold value in a domain-agnostic way
+                                    // For rate/threshold conditions, we need a value that exceeds the threshold
+                                    double thresholdValue = 0;
+                                    
+                                    // Handle any threshold type by using string conversion as an intermediary
+                                    string thresholdStr = thresholdCondition.Threshold.ToString();
+                                    if (double.TryParse(thresholdStr, out double parsed))
+                                    {
+                                        thresholdValue = parsed;
+                                    }
+                                    
+                                    // Add a buffer to the threshold to ensure the condition triggers
+                                    inputs[sensorName] = thresholdValue + 1;
+                                }
+                            }
+                            else
+                            {
+                                // No condition found for this input
+                                // Use a conservative default - ONLY as a last resort
+                                // Type is inferred from expression context
+                                if (expression.Contains(sensorName + " == true") || 
+                                    expression.Contains(sensorName + " && "))
+                                {
+                                    inputs[sensorName] = true;  // Boolean context
+                                }
+                                else if (expression.Contains(sensorName + " + ") || 
+                                         expression.Contains(sensorName + " - ") || 
+                                         expression.Contains(sensorName + " * ") || 
+                                         expression.Contains(sensorName + " / "))
+                                {
+                                    inputs[sensorName] = 10.0;  // Numeric context
+                                }
+                                else
+                                {
+                                    // String context likely
+                                    inputs[sensorName] = "value";
+                                }
+                            }
+                        }
                     }
 
                     // Check if it's a string template expression and handle specially

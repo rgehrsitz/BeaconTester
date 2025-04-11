@@ -36,13 +36,28 @@ namespace BeaconTester.Core.Models
         public double? Tolerance { get; set; }
 
         /// <summary>
-        /// Maximum time to wait for the condition to be met (for asynchronous tests)
+        /// Maximum time to wait for the condition to be met (for asynchronous tests).
+        /// If specified, this takes precedence over TimeoutMultiplier.
         /// </summary>
         public int? TimeoutMs { get; set; }
 
         /// <summary>
-        /// Polling interval for checking conditions with timeouts
+        /// Number of Beacon cycles to wait for the condition to be met.
+        /// This is used only if TimeoutMs is not set, and provides a more cycle-aware alternative.
         /// </summary>
-        public int? PollingIntervalMs { get; set; } = 100;
+        public int? TimeoutMultiplier { get; set; }
+
+        /// <summary>
+        /// Polling interval for checking conditions with timeouts in milliseconds.
+        /// If specified, this takes precedence over PollingIntervalFactor.
+        /// </summary>
+        public int? PollingIntervalMs { get; set; }
+
+        /// <summary>
+        /// Factor to multiply by Beacon cycle time to determine polling interval.
+        /// Default of 1.1 means to poll just after a cycle should have completed.
+        /// This is used only if PollingIntervalMs is not set.
+        /// </summary>
+        public double? PollingIntervalFactor { get; set; }
     }
 }

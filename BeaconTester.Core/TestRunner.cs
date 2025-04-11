@@ -12,6 +12,7 @@ namespace BeaconTester.Core
         private readonly ILogger _logger;
         private readonly RedisAdapter _redis;
         private readonly RedisMonitor? _monitor;
+        private readonly TestConfig _config;
 
         /// <summary>
         /// Creates a new test runner with Redis connection
@@ -19,11 +20,22 @@ namespace BeaconTester.Core
         public TestRunner(
             RedisConfiguration redisConfig,
             ILogger logger,
+            TestConfig? config = null,
             bool enableMonitoring = false
         )
         {
             _logger = logger.ForContext<TestRunner>();
             _redis = new RedisAdapter(redisConfig, logger);
+            
+            // Initialize default config or use provided one
+            _config = config ?? new TestConfig();
+            
+            // Try to read configuration from environment variables
+            ReadConfigFromEnvironment();
+            
+            _logger.Information(
+                "TestRunner initialized with BeaconCycleTime: {CycleTime}ms, StepDelayMultiplier: {DelayMultiplier}, TimeoutMultiplier: {TimeoutMultiplier}, GlobalTimeoutMultiplier: {GlobalMultiplier}",
+                _config.BeaconCycleTimeMs, _config.DefaultStepDelayMultiplier, _config.DefaultTimeoutMultiplier, _config.GlobalTimeoutMultiplier);
 
             if (enableMonitoring)
             {
@@ -36,8 +48,11 @@ namespace BeaconTester.Core
         /// <summary>
         /// Runs a single test scenario
         /// </summary>
-        public async Task<TestResult> RunTestAsync(TestScenario scenario)
+        public async Task<TestResult> RunTestAsync(TestScenario scenario, double? overrideTimeoutMultiplier = null)
         {
+            // Apply the global timeout multiplier or override if provided
+            double timeoutMultiplier = overrideTimeoutMultiplier ?? _config.GlobalTimeoutMultiplier;
+            
             _logger.Information("Running test scenario: {TestName}", scenario.Name);
 
             // Ensure the scenario is in the correct format
@@ -72,7 +87,9 @@ namespace BeaconTester.Core
                 // Run each step in sequence
                 foreach (var step in scenario.Steps)
                 {
-                    var stepResult = await RunTestStepAsync(step, scenario.TimeoutMultiplier);
+                    // Combine the scenario timeout multiplier with the global one
+                    double combinedMultiplier = scenario.TimeoutMultiplier * timeoutMultiplier;
+                    var stepResult = await RunTestStepAsync(step, combinedMultiplier);
                     result.StepResults.Add(stepResult);
 
                     // If a step fails and it has expectations, stop the test
@@ -145,14 +162,23 @@ namespace BeaconTester.Core
                     await _redis.SendInputsAsync(step.Inputs);
                 }
 
-                // Wait for rules to process, if a delay is specified
+                // Calculate cycle-aware delay for rule processing
+                int delayMs;
                 if (step.Delay > 0)
                 {
-                    int adjustedDelay = (int)(step.Delay * timeoutMultiplier);
-                    _logger.Debug("Waiting for {Delay}ms (original: {OriginalDelay}ms, multiplier: {Multiplier})", 
-                        adjustedDelay, step.Delay, timeoutMultiplier);
-                    await Task.Delay(adjustedDelay);
+                    // If explicit delay is specified, apply timeout multiplier
+                    delayMs = (int)(step.Delay * timeoutMultiplier);
                 }
+                else
+                {
+                    // Otherwise calculate based on Beacon cycle time
+                    int delayMultiplier = step.DelayMultiplier ?? _config.DefaultStepDelayMultiplier;
+                    delayMs = _config.CalculateStepWaitTimeMs(delayMultiplier);
+                }
+                
+                _logger.Debug("Waiting for {Delay}ms (cycle time: {CycleTime}ms, multiplier: {Multiplier})", 
+                    delayMs, _config.BeaconCycleTimeMs, timeoutMultiplier);
+                await Task.Delay(delayMs);
 
                 // Check all expectations
                 if (step.Expectations.Count > 0)
@@ -160,14 +186,14 @@ namespace BeaconTester.Core
                     // Apply timeout multiplier to each expectation
                     foreach (var expectation in step.Expectations)
                     {
-                        // If timeout isn't set, calculate a reasonable default based on the Beacon cycle time
-                        // For most test cases, 3 cycle times should be sufficient (data in, processing, data out)
+                        // If timeout isn't set, calculate based on configured Beacon cycle time
                         if (!expectation.TimeoutMs.HasValue)
                         {
-                            // Default to 3 cycle times (300ms for default 100ms cycle) plus a small buffer
-                            expectation.TimeoutMs = 3 * 100 + 50; // 350ms default
-                            _logger.Debug("Set default timeout for {Key} to {Timeout}ms (3 cycles + 50ms buffer)",
-                                expectation.Key, expectation.TimeoutMs.Value);
+                            int cycleMultiplier = expectation.TimeoutMultiplier ?? _config.DefaultTimeoutMultiplier;
+                            expectation.TimeoutMs = _config.CalculateTimeoutMs(cycleMultiplier);
+                            
+                            _logger.Debug("Set default timeout for {Key} to {Timeout}ms ({Multiplier} cycles + {Buffer}ms buffer)",
+                                expectation.Key, expectation.TimeoutMs.Value, cycleMultiplier, _config.TimeoutBufferMs);
                         }
 
                         // Apply the multiplier
@@ -185,12 +211,18 @@ namespace BeaconTester.Core
                         
                         if (expectation.PollingIntervalMs.HasValue)
                         {
+                            // Apply multiplier to explicit polling interval
                             int originalInterval = expectation.PollingIntervalMs.Value;
                             expectation.PollingIntervalMs = Math.Max(50, (int)(originalInterval * timeoutMultiplier));
                         }
                         else
                         {
-                            expectation.PollingIntervalMs = 100;
+                            // Calculate polling interval based on Beacon cycle time
+                            double pollingFactor = expectation.PollingIntervalFactor ?? _config.PollingIntervalFactor;
+                            expectation.PollingIntervalMs = _config.CalculatePollingIntervalMs(pollingFactor);
+                            
+                            _logger.Debug("Set polling interval for {Key} to {Interval}ms ({Factor}x cycle time)",
+                                expectation.Key, expectation.PollingIntervalMs.Value, pollingFactor);
                         }
                     }
                     
@@ -320,6 +352,44 @@ namespace BeaconTester.Core
             _logger.Information("=========================================");
         }
 
+        /// <summary>
+        /// Reads test configuration from environment variables
+        /// </summary>
+        private void ReadConfigFromEnvironment()
+        {
+            // Read Beacon cycle time from environment variable
+            var cycleTimeStr = Environment.GetEnvironmentVariable("BEACON_CYCLE_TIME");
+            if (!string.IsNullOrEmpty(cycleTimeStr) && int.TryParse(cycleTimeStr, out int cycleTime) && cycleTime > 0)
+            {
+                _config.BeaconCycleTimeMs = cycleTime;
+                _logger.Debug("Set BeaconCycleTimeMs to {CycleTime}ms from environment variable", cycleTime);
+            }
+            
+            // Read step delay multiplier from environment variable
+            var stepDelayStr = Environment.GetEnvironmentVariable("STEP_DELAY_MULTIPLIER");
+            if (!string.IsNullOrEmpty(stepDelayStr) && int.TryParse(stepDelayStr, out int stepDelay) && stepDelay > 0)
+            {
+                _config.DefaultStepDelayMultiplier = stepDelay;
+                _logger.Debug("Set DefaultStepDelayMultiplier to {Multiplier} from environment variable", stepDelay);
+            }
+            
+            // Read timeout multiplier from environment variable
+            var timeoutMultiplierStr = Environment.GetEnvironmentVariable("TIMEOUT_MULTIPLIER");
+            if (!string.IsNullOrEmpty(timeoutMultiplierStr) && int.TryParse(timeoutMultiplierStr, out int timeoutMultiplier) && timeoutMultiplier > 0)
+            {
+                _config.DefaultTimeoutMultiplier = timeoutMultiplier;
+                _logger.Debug("Set DefaultTimeoutMultiplier to {Multiplier} from environment variable", timeoutMultiplier);
+            }
+            
+            // Read global timeout multiplier from environment variable
+            var globalMultiplierStr = Environment.GetEnvironmentVariable("GLOBAL_TIMEOUT_MULTIPLIER");
+            if (!string.IsNullOrEmpty(globalMultiplierStr) && double.TryParse(globalMultiplierStr, out double globalMultiplier) && globalMultiplier > 0)
+            {
+                _config.GlobalTimeoutMultiplier = globalMultiplier;
+                _logger.Debug("Set GlobalTimeoutMultiplier to {Multiplier} from environment variable", globalMultiplier);
+            }
+        }
+        
         /// <summary>
         /// Disposes of resources
         /// </summary>

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Text.Json;
 using BeaconTester.Core;
 using BeaconTester.Core.Models;
@@ -19,7 +20,7 @@ namespace BeaconTester.Runner.Commands
         {
             var command = new Command("run", "Run test scenarios against a Beacon instance");
 
-            // Add options
+            // Add required options
             var scenariosOption = new Option<string>(
                 name: "--scenarios",
                 description: "Path to the test scenarios JSON file"
@@ -54,35 +55,59 @@ namespace BeaconTester.Runner.Commands
                 description: "Enable Redis monitoring (default: false)"
             );
 
+            // Note: Cycle time configuration is now handled via environment variables:
+            // - BEACON_CYCLE_TIME: Beacon's cycle time in milliseconds
+            // - STEP_DELAY_MULTIPLIER: Default multiplier for step delay times
+            // - TIMEOUT_MULTIPLIER: Default multiplier for expectation timeouts
+            // - GLOBAL_TIMEOUT_MULTIPLIER: Global multiplier applied to all timeouts
+
             command.AddOption(scenariosOption);
             command.AddOption(outputOption);
             command.AddOption(redisHostOption);
             command.AddOption(redisPortOption);
             command.AddOption(monitorOption);
 
-            // Set handler
-            command.SetHandler(
-                (scenariosPath, outputPath, redisHost, redisPort, monitor) =>
-                    HandleRunCommand(scenariosPath, outputPath, redisHost, redisPort, monitor),
-                scenariosOption,
-                outputOption,
-                redisHostOption,
-                redisPortOption,
-                monitorOption
-            );
+            // Define the handler method
+            command.SetHandler(RunHandler, scenariosOption, outputOption, redisHostOption, redisPortOption, monitorOption);
 
             return command;
         }
 
         /// <summary>
+        /// Handler method for the run command
+        /// </summary>
+        private async Task<int> RunHandler(string scenariosPath, string? outputPath, string? redisHost, int redisPort, bool monitor)
+        {
+            // Create empty options object (config will be read from environment variables)
+            var testConfigOptions = new TestConfigOptions();
+            
+            // Execute the command logic and return the result code
+            return await HandleRunCommand(scenariosPath, outputPath, redisHost, redisPort, monitor, testConfigOptions);
+        }
+        
+        /// <summary>
         /// Handles the run command
         /// </summary>
+
+        
+        /// <summary>
+        /// Options class for TestConfig parameters to work around parameter count limitations
+        /// </summary>
+        private class TestConfigOptions
+        {
+            public int BeaconCycleTime { get; set; }
+            public int StepDelayMultiplier { get; set; }
+            public int TimeoutMultiplier { get; set; }
+            public double GlobalTimeoutMultiplier { get; set; }
+        }
+
         private async Task<int> HandleRunCommand(
             string scenariosPath,
             string? outputPath,
             string? redisHost,
             int redisPort,
-            bool monitor
+            bool monitor,
+            TestConfigOptions configOptions
         )
         {
             var logger = Log.Logger.ForContext<RunCommand>();
@@ -129,8 +154,36 @@ namespace BeaconTester.Runner.Commands
                     redisConfig.Endpoints.Add($"{redisHost}:{(redisPort > 0 ? redisPort : 6379)}");
                 }
 
+                // Create test config with cycle time settings
+                var testConfig = new TestConfig();
+                
+                // Apply command line overrides if specified
+                if (configOptions.BeaconCycleTime > 0)
+                {
+                    testConfig.BeaconCycleTimeMs = configOptions.BeaconCycleTime;
+                    logger.Information("Using Beacon cycle time: {CycleTime}ms", testConfig.BeaconCycleTimeMs);
+                }
+                
+                if (configOptions.StepDelayMultiplier > 0)
+                {
+                    testConfig.DefaultStepDelayMultiplier = configOptions.StepDelayMultiplier;
+                    logger.Information("Using step delay multiplier: {Multiplier}", testConfig.DefaultStepDelayMultiplier);
+                }
+                
+                if (configOptions.TimeoutMultiplier > 0)
+                {
+                    testConfig.DefaultTimeoutMultiplier = configOptions.TimeoutMultiplier;
+                    logger.Information("Using timeout multiplier: {Multiplier}", testConfig.DefaultTimeoutMultiplier);
+                }
+                
+                if (configOptions.GlobalTimeoutMultiplier > 0)
+                {
+                    testConfig.GlobalTimeoutMultiplier = configOptions.GlobalTimeoutMultiplier;
+                    logger.Information("Using global timeout multiplier: {Multiplier}", testConfig.GlobalTimeoutMultiplier);
+                }
+                
                 // Run tests
-                using var testRunner = new TestRunner(redisConfig, logger, monitor);
+                using var testRunner = new TestRunner(redisConfig, logger, testConfig, monitor);
                 var results = await testRunner.RunTestBatchAsync(scenariosDocument.Scenarios);
 
                 // Save results if output path is specified
