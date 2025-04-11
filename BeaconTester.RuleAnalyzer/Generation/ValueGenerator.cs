@@ -92,64 +92,109 @@ namespace BeaconTester.RuleAnalyzer.Generation
         )
         {
             var threshold = condition.Threshold;
-            var comparisonOperator = condition.Operator;
+            var comparisonOperator = condition.Operator?.ToLowerInvariant() ?? ">";
+            
+            // Normalize operator
+            if (comparisonOperator == "greater_than") comparisonOperator = ">";
+            else if (comparisonOperator == "less_than") comparisonOperator = "<";
+            else if (comparisonOperator == "greater_than_or_equal_to") comparisonOperator = ">=";
+            else if (comparisonOperator == "less_than_or_equal_to") comparisonOperator = "<=";
+            else if (comparisonOperator == "equal_to") comparisonOperator = "==";
+            else if (comparisonOperator == "not_equal_to") comparisonOperator = "!=";
+
+            _logger.Debug("Generating temporal value for step {Step}/{TotalSteps}, target: {Target}, operator: {Operator}, threshold: {Threshold}",
+                step, totalSteps, target, comparisonOperator, threshold);
 
             if (target == ValueTarget.Positive)
             {
-                // For positive cases (should trigger), we need to exceed the threshold
+                // For positive cases (should trigger), we need to exceed/meet the threshold
+                // consistently throughout the time window
                 switch (comparisonOperator)
                 {
                     case ">":
                     case "gt":
-                        // Ramp up to exceed threshold
-                        return threshold + (step + 1) * 2;
+                        // Ensure ALL values in sequence exceed threshold by an increasing margin
+                        // First value should already be above threshold by enough to matter
+                        double margin = Math.Max(threshold * 0.1, 5); // At least 5 or 10% of threshold
+                        return threshold + margin + (step * 3); // Increasing trend
 
                     case ">=":
                     case "gte":
-                        // Ramp up to meet threshold
-                        return threshold + step;
+                        // Ensure ALL values in sequence are at least the threshold
+                        // Start exactly at threshold, then increase
+                        return threshold + (step * 2);
 
                     case "<":
                     case "lt":
-                        // Ramp down to go below threshold
-                        return threshold - (step + 1) * 2;
+                        // Ensure ALL values in sequence are below threshold by a decreasing margin
+                        margin = Math.Max(threshold * 0.1, 5);
+                        return threshold - margin - (step * 3); // Decreasing trend
 
                     case "<=":
                     case "lte":
-                        // Ramp down to meet threshold
-                        return threshold - step;
+                        // Ensure ALL values in sequence are at most the threshold
+                        // Start exactly at threshold, then decrease
+                        return threshold - (step * 2);
+
+                    case "==":
+                    case "eq":
+                        // All values must equal threshold for exact match
+                        return threshold;
+
+                    case "!=":
+                    case "ne":
+                    case "neq":
+                        // All values must not equal threshold
+                        return threshold + 10 + (step * 2);
 
                     default:
-                        return threshold + 10; // Default case
+                        // Default to increasing above threshold
+                        return threshold + 10 + (step * 2);
                 }
             }
             else
             {
-                // For negative cases (shouldn't trigger), we need to stay on the wrong side
+                // For negative cases (shouldn't trigger), we need at least some values
+                // that FAIL to meet the condition during the time window
+                // For simplicity, we'll make values oscillate above/below threshold
+                bool shouldBeAbove = (step % 2 == 0);
+                
                 switch (comparisonOperator)
                 {
                     case ">":
                     case "gt":
-                        // Stay below threshold
-                        return threshold - 5;
+                        // Need some values below threshold to prevent triggering
+                        return shouldBeAbove ? threshold + 5 : threshold - 5;
 
                     case ">=":
                     case "gte":
-                        // Stay below threshold
-                        return threshold - 1;
+                        // Need some values below threshold to prevent triggering
+                        return shouldBeAbove ? threshold + 3 : threshold - 3;
 
                     case "<":
                     case "lt":
-                        // Stay above threshold
-                        return threshold + 5;
+                        // Need some values above threshold to prevent triggering
+                        return shouldBeAbove ? threshold + 5 : threshold - 5;
 
                     case "<=":
                     case "lte":
-                        // Stay above threshold
-                        return threshold + 1;
+                        // Need some values above threshold to prevent triggering
+                        return shouldBeAbove ? threshold + 3 : threshold - 3;
+
+                    case "==":
+                    case "eq":
+                        // Need some values not equal to threshold
+                        return shouldBeAbove ? threshold + 5 : threshold - 5;
+
+                    case "!=":
+                    case "ne":
+                    case "neq":
+                        // Need some values equal to threshold
+                        return shouldBeAbove ? threshold + 5 : threshold;
 
                     default:
-                        return threshold - 10; // Default case
+                        // Default to oscillating around threshold
+                        return shouldBeAbove ? threshold + 5 : threshold - 5;
                 }
             }
         }

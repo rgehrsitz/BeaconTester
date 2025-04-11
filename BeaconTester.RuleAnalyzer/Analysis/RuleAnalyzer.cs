@@ -9,6 +9,11 @@ namespace BeaconTester.RuleAnalyzer.Analysis
     public class RuleAnalyzer
     {
         private readonly ILogger _logger;
+        /// <summary>
+        /// The condition analyzer used by this rule analyzer
+        /// </summary>
+        public ConditionAnalyzer ConditionAnalyzer => _conditionAnalyzer;
+        
         private readonly ConditionAnalyzer _conditionAnalyzer;
         private readonly DependencyAnalyzer _dependencyAnalyzer;
 

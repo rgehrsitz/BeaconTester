@@ -147,13 +147,22 @@ namespace BeaconTester.RuleAnalyzer.Generation
         /// Generates a test value for a sensor based on a condition
         /// </summary>
         /// <param name="sensorName">Name of the sensor to generate a value for</param>
-        /// <param name="condition">The condition to use for value generation</param>
+        /// <param name="condition">The condition to use for value generation. Can be null if no specific condition is known.</param>
         /// <param name="target">Whether to generate a value that satisfies or fails the condition</param>
         /// <returns>An appropriate value for the sensor</returns>
-        public object GenerateValueForSensor(string sensorName, ConditionDefinition condition, ValueTarget target)
+        public object GenerateValueForSensor(string sensorName, ConditionDefinition? condition, ValueTarget target)
         {
             try
             {
+                // Handle null condition
+                if (condition == null)
+                {
+                    // If no condition is provided, delegate to the ValueGenerator
+                    // with a reasonable default that should work in most cases
+                    // This is a fallback only when we can't find relevant conditions in the rules
+                    return 42.0; // A reasonable default value that's easy to identify
+                }
+                
                 if (condition is ComparisonCondition comparison && comparison.Sensor == sensorName)
                 {
                     // Direct match - use the value generator to create an appropriate value based on the condition
@@ -290,6 +299,11 @@ namespace BeaconTester.RuleAnalyzer.Generation
                         var steps = Math.Max(3, duration / 500); // At least 3 steps, or more for longer durations
 
                         // Generate values that will satisfy the condition
+                        // For threshold_over_time with operator >, generate increasing values
+                        // that cross the threshold and stay above it
+                        double baseValue = temporal.Threshold;
+                        string comparisonOperator = temporal.Operator ?? ">";
+                        
                         for (int i = 0; i < steps; i++)
                         {
                             var value = _valueGenerator.GenerateValueForTemporalCondition(
@@ -298,11 +312,33 @@ namespace BeaconTester.RuleAnalyzer.Generation
                                 steps,
                                 ValueTarget.Positive
                             );
+                            
+                            // Make sure values consistently satisfy the condition over time
+                            // by ensuring a proper trend (rising for '>' operators, etc.)
+                            switch (comparisonOperator.ToLowerInvariant())
+                            {
+                                case "greater_than":
+                                case ">":
+                                    // For '>' operator, ensure values rise and stay above threshold
+                                    value = baseValue + 5 + (i * 2);
+                                    break;
+                                case "less_than":
+                                case "<":
+                                    // For '<' operator, ensure values decrease and stay below threshold
+                                    value = baseValue - 5 - (i * 2);
+                                    break;
+                                default:
+                                    // For other operators, ensure consistent values that satisfy the condition
+                                    if (i == 0) value = baseValue;
+                                    break;
+                            }
 
                             var sequenceInput = new SequenceInput { DelayMs = duration / steps };
-
                             sequenceInput.Inputs[sensor] = value;
                             inputSequence.Add(sequenceInput);
+                            
+                            _logger.Debug("Generated temporal step {Step}/{TotalSteps} with value {Value} for condition {Condition}",
+                                i+1, steps, value, $"{sensor} {comparisonOperator} {baseValue}");
                         }
                     }
                 }

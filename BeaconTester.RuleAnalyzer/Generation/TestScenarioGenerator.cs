@@ -293,27 +293,51 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     return allInputs.Select(i => new TestInput { Key = i.Key, Value = i.Value }).ToList();
                 }
 
+                // Check if this is a temporal rule
+                bool isTemporalRule = _ruleAnalyzer.ConditionAnalyzer.HasTemporalCondition(rule.Conditions);
+                
                 if (testCase.Inputs.Count > 0)
                 {
-                    // Create step for positive test case
-                    var positiveStep = new TestStep
+                    // For temporal rules, the basic test should be minimal or modified
+                    if (isTemporalRule)
                     {
-                        Name = "Positive test case",
-                        Description = "Test inputs that should trigger the rule",
-                        Inputs = EnsureAllRequiredInputs(testCase.Inputs, true),
-                        Delay = 500, // Default delay
-                        Expectations = testCase
-                            .Outputs.Select(o => new TestExpectation
-                            {
-                                Key = o.Key,
-                                Expected = o.Value,
-                                Validator = GetValidatorType(o.Value),
-                                TimeoutMs = 1000 // Add timeout for rules to process
-                            })
-                            .ToList(),
-                    };
+                        _logger.Debug("Rule {RuleName} has temporal conditions - modifying basic test", rule.Name);
+                        
+                        // For temporal rules, add a note but don't add expectations that would fail
+                        // The proper test will be generated in the temporal scenario
+                        var temporalStep = new TestStep
+                        {
+                            Name = "Basic test for temporal rule",
+                            Description = "Note: This is a temporal rule that requires a sequence of values over time. See the temporal test scenario.",
+                            Inputs = EnsureAllRequiredInputs(testCase.Inputs, true),
+                            Delay = 500, // Default delay
+                            // Don't add expectations for temporal outputs - they'll likely fail
+                        };
+                        
+                        scenario.Steps.Add(temporalStep);
+                    }
+                    else
+                    {
+                        // Regular non-temporal rules get a normal positive test step
+                        var positiveStep = new TestStep
+                        {
+                            Name = "Positive test case",
+                            Description = "Test inputs that should trigger the rule",
+                            Inputs = EnsureAllRequiredInputs(testCase.Inputs, true),
+                            Delay = 500, // Default delay
+                            Expectations = testCase
+                                .Outputs.Select(o => new TestExpectation
+                                {
+                                    Key = o.Key,
+                                    Expected = o.Value,
+                                    Validator = GetValidatorType(o.Value),
+                                    TimeoutMs = 1000 // Add timeout for rules to process
+                                })
+                                .ToList(),
+                        };
 
-                    scenario.Steps.Add(positiveStep);
+                        scenario.Steps.Add(positiveStep);
+                    }
                 }
 
                 // Generate negative test case if possible
@@ -400,186 +424,125 @@ namespace BeaconTester.RuleAnalyzer.Generation
                     // We'll use preSetOutputs to simulate the outputs of dependency rules
                     var preSetOutputs = new Dictionary<string, object>();
 
+                    // Get all the target rule's dependency requirements
+                    // by analyzing its conditions
+                    Dictionary<string, object> dependencyRequirements = new Dictionary<string, object>();
+                    if (targetRule.Conditions != null)
+                    {
+                        dependencyRequirements = _ruleAnalyzer.ConditionAnalyzer.AnalyzeConditionRequirements(targetRule.Conditions);
+                    }
+
+                    // For each dependency, set appropriate values based on analysis
                     foreach (var dependency in dependencies)
                     {
-                        // Generate a suitable value for the dependency based on rule conditions and actions
                         var key = dependency.Key;
-                        // Initialize value with a default to avoid unassigned variable error
-                        object value = 50.0;
+                        object value;
 
-                        if (dependency.DependencyType == DependencyType.Output)
+                        // First, try to get the value from our analyzed requirements
+                        if (dependencyRequirements.TryGetValue(key, out var requiredValue))
                         {
-                            // For output dependencies, we need a value that satisfies the conditions in the target rule
+                            value = requiredValue;
+                            _logger.Debug("Using dependency value {Key} = {Value} based on target rule condition requirements", 
+                                key, value);
+                        }
+                        else
+                        {
+                            // Otherwise try to find the value in the source rule's actions
                             var sourceRule = dependency.SourceRule;
-                            
-                            // Look for this key in the target rule conditions
-                            bool valueFound = false;
-                            
-                            // Look for conditions in the target rule that reference this dependency
-                            if (targetRule.Conditions != null)
-                            {
-                                var conditionsUsingDependency = FindConditionsReferencingKey(
-                                    targetRule.Conditions, 
-                                    dependency.Key
-                                );
-                                
-                                // If we found conditions that use this dependency, extract a value that would satisfy them
-                                if (conditionsUsingDependency.Count > 0)
-                                {
-                                    // Just use the first condition as a reference
-                                    var condition = conditionsUsingDependency.First();
-                                    
-                                    if (condition is ComparisonCondition comparison)
-                                    {
-                                        // For comparison conditions, generate a value that satisfies the condition
-                                        object comparisonValue;
-                                        switch (comparison.Operator.ToLowerInvariant())
-                                        {
-                                            case ">":
-                                            case "gt":
-                                                // Need a value greater than the threshold
-                                                if (comparison.Value is double d1)
-                                                    comparisonValue = d1 + 10;
-                                                else if (comparison.Value is int i1)
-                                                    comparisonValue = i1 + 10;
-                                                else
-                                                    comparisonValue = 100; // default for greater than
-                                                break;
-                                                
-                                            case ">=":
-                                            case "gte":
-                                                // Need a value greater than or equal to the threshold
-                                                if (comparison.Value is double d2)
-                                                    comparisonValue = d2;
-                                                else if (comparison.Value is int i2)
-                                                    comparisonValue = i2;
-                                                else
-                                                    comparisonValue = 100; // default for greater than or equal
-                                                break;
-                                                
-                                            case "<":
-                                            case "lt":
-                                                // Need a value less than the threshold
-                                                if (comparison.Value is double d3)
-                                                    comparisonValue = d3 - 10;
-                                                else if (comparison.Value is int i3)
-                                                    comparisonValue = i3 - 10;
-                                                else
-                                                    comparisonValue = 0; // default for less than
-                                                break;
-                                                
-                                            case "<=":
-                                            case "lte":
-                                                // Need a value less than or equal to the threshold
-                                                if (comparison.Value is double d4)
-                                                    comparisonValue = d4;
-                                                else if (comparison.Value is int i4)
-                                                    comparisonValue = i4;
-                                                else
-                                                    comparisonValue = 0; // default for less than or equal
-                                                break;
-                                                
-                                            case "==":
-                                            case "=":
-                                            case "eq":
-                                                // Need the exact value
-                                                comparisonValue = comparison.Value ?? true;
-                                                break;
-                                                
-                                            case "!=":
-                                            case "ne":
-                                            case "neq":
-                                                // Need any value that's not the comparison value
-                                                if (comparison.Value is double d5)
-                                                    comparisonValue = d5 + 10;
-                                                else if (comparison.Value is int i5)
-                                                    comparisonValue = i5 + 10;
-                                                else if (comparison.Value is bool b)
-                                                    comparisonValue = !b;
-                                                else
-                                                    comparisonValue = true; // default for not equal
-                                                break;
-                                                
-                                            default:
-                                                comparisonValue = true; // default case
-                                                break;
-                                        }
-                                        value = comparisonValue;
-                                        
-                                        valueFound = true;
-                                    }
-                                }
-                            }
-                            
-                            // If we couldn't determine a value from conditions, try to get it from the source rule's actions
-                            if (!valueFound)
-                            {
-                                var setValueAction = sourceRule.Actions
-                                    .OfType<SetValueAction>()
-                                    .FirstOrDefault(a => a.Key == key);
+                            var setValueAction = sourceRule.Actions
+                                .OfType<SetValueAction>()
+                                .FirstOrDefault(a => a.Key == key);
 
-                                if (setValueAction != null)
-                                {
-                                    // If there's a direct value, use it
-                                    if (setValueAction.Value != null)
-                                    {
-                                        value = setValueAction.Value;
-                                        valueFound = true;
-                                    }
-                                    else if (!string.IsNullOrEmpty(setValueAction.ValueExpression))
-                                    {
-                                        // For expressions, try to make a reasonable guess
-                                        var expression = setValueAction.ValueExpression.ToLowerInvariant();
-                                        
-                                        if (expression == "true")
-                                        {
-                                            value = true;
-                                            valueFound = true;
-                                        }
-                                        else if (expression == "false")
-                                        {
-                                            value = false;
-                                            valueFound = true;
-                                        }
-                                        else if (double.TryParse(expression, out double numVal))
-                                        {
-                                            value = numVal;
-                                            valueFound = true;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // If we still don't have a value, use a reasonable default
-                            if (!valueFound)
+                            if (setValueAction?.Value != null)
                             {
-                                // Default to boolean true for keys that look like boolean outputs
-                                if (key.EndsWith("_enabled") || key.EndsWith("_status") || 
-                                    key.EndsWith("_active") || key.EndsWith("_alarm") || 
-                                    key.EndsWith("_alert") || key.EndsWith("_normal"))
+                                // Use the direct value from the action
+                                value = setValueAction.Value;
+                                _logger.Debug("Using dependency value {Key} = {Value} from source rule direct action", 
+                                    key, value);
+                            }
+                            else
+                            {
+                                // Last resort: use a default value based on analyzed rules
+                                // Check if it's a boolean and use true, otherwise use 1.0
+                                if (key.Contains("enabled") || key.Contains("status") || 
+                                    key.Contains("active") || key.Contains("alarm") || 
+                                    key.Contains("alert") || key.Contains("normal"))
                                 {
                                     value = true;
                                 }
                                 else
                                 {
-                                    // For other outputs, use a numeric value that's not 0
-                                    value = 50.0;
+                                    value = 1.0;
                                 }
+                                _logger.Debug("No direct value found for {Key}, using default value {Value}", key, value);
                             }
                         }
-                        else
-                        {
-                            // For other types of dependencies, use a default value
-                            value = 50.0;
-                        }
 
-                        preSetOutputs[key] = value;
+                        // Ensure the value is properly normalized (especially string booleans to real booleans)
+                        preSetOutputs[key] = _ruleAnalyzer.ConditionAnalyzer.NormalizeValue(value);
                     }
 
                     scenario.PreSetOutputs = preSetOutputs;
 
-                    // Now generate inputs for the target rule
+                    // Generate a basic test case for the target rule
                     var testCase = _testCaseGenerator.GenerateBasicTestCase(targetRule);
+                    
+                    // For all actions in the target rule that use value expressions,
+                    // find any input sensors referenced in those expressions
+                    Dictionary<string, object> requiredInputs = new Dictionary<string, object>();
+                    
+                    // Extract input references from all rule actions in the target rule
+                    foreach (var action in targetRule.Actions)
+                    {
+                        if (action is SetValueAction setAction && !string.IsNullOrEmpty(setAction.ValueExpression))
+                        {
+                            // Extract sensor references from the expression
+                            var sensors = _ruleAnalyzer.ConditionAnalyzer.ExtractSensorsFromExpression(setAction.ValueExpression);
+                            foreach (var sensor in sensors)
+                            {
+                                if (sensor.StartsWith("input:") && !requiredInputs.ContainsKey(sensor))
+                                {
+                                    // This input is required by an action expression - find any rules that reference it
+                                    foreach (var rule in analysis.Rules)
+                                    {
+                                        if (rule.Conditions != null)
+                                        {
+                                            // Check if this rule references our input
+                                            var ruleSensors = _ruleAnalyzer.ConditionAnalyzer.ExtractSensors(rule.Conditions);
+                                            if (ruleSensors.Contains(sensor))
+                                            {
+                                                // Use the condition analyzer to get a suitable value
+                                                var ruleRequirements = _ruleAnalyzer.ConditionAnalyzer.AnalyzeConditionRequirements(rule.Conditions);
+                                                if (ruleRequirements.TryGetValue(sensor, out var sensorValue))
+                                                {
+                                                    requiredInputs[sensor] = sensorValue;
+                                                    _logger.Debug("Found value {Value} for input {Sensor} from rule {Rule}", 
+                                                        sensorValue, sensor, rule.Name);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // If we didn't find a value, use a default that's easily identified
+                                    if (!requiredInputs.ContainsKey(sensor))
+                                    {
+                                        requiredInputs[sensor] = 1.0;
+                                        _logger.Debug("Using default value 1.0 for required input {Sensor} - no rule conditions found", sensor);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Add all required inputs to the test case
+                    foreach (var (key, value) in requiredInputs)
+                    {
+                        if (!testCase.Inputs.ContainsKey(key))
+                        {
+                            testCase.Inputs[key] = value;
+                        }
+                    }
 
                     // Helper function to ensure all required inputs are included
                     List<TestInput> EnsureAllRequiredInputs(Dictionary<string, object> inputs, bool isPositiveCase)
@@ -603,10 +566,9 @@ namespace BeaconTester.RuleAnalyzer.Generation
                                 }
                                 else
                                 {
-                                    // No condition info available, use a neutral value
-                                    // Use different values for positive and negative tests to avoid accidental triggers
-                                    allInputs[sensor] = isPositiveCase ? 50.0 : 0.0;
-                                    _logger.Debug("Added missing input sensor {Sensor} with neutral value", sensor);
+                                    // No condition info available, use 1.0 for positive and 0.0 for negative
+                                    allInputs[sensor] = isPositiveCase ? 1.0 : 0.0;
+                                    _logger.Debug("Added missing input sensor {Sensor} with default value", sensor);
                                 }
                             }
                         }
@@ -644,18 +606,21 @@ namespace BeaconTester.RuleAnalyzer.Generation
                             $"Tests that {targetRuleName} doesn't trigger when dependencies are not met",
                     };
 
-                    // Use empty or opposite preset outputs
+                    // Use opposite/inverted values for each preset output
                     var oppositeOutputs = new Dictionary<string, object>();
                     foreach (var (key, value) in preSetOutputs)
                     {
-                        if (value is bool b)
+                        // Normalize the value to ensure proper type
+                        var normalizedValue = _ruleAnalyzer.ConditionAnalyzer.NormalizeValue(value);
+                        
+                        if (normalizedValue is bool b)
                         {
                             oppositeOutputs[key] = !b;
                         }
-                        else if (value is double d)
+                        else if (normalizedValue is double d)
                         {
-                            // Use a value far from the original
-                            oppositeOutputs[key] = d > 50 ? 0.0 : 100.0;
+                            // Use an inverted value
+                            oppositeOutputs[key] = d > 0 ? 0.0 : 1.0;
                         }
                         else
                         {
