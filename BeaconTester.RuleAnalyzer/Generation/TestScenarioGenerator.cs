@@ -584,16 +584,30 @@ namespace BeaconTester.RuleAnalyzer.Generation
                         // Ensure all required inputs are included
                         Inputs = EnsureAllRequiredInputs(testCase.Inputs, true),
                         Delay = 500,
-                        Expectations = testCase
-                            .Outputs.Select(o => new TestExpectation
-                            {
-                                Key = o.Key,
-                                Expected = o.Value,
-                                Validator = GetValidatorType(o.Value),
-                                TimeoutMs = 1000 // Add timeout for rules to process
-                            })
-                            .ToList(),
+                        // We need to set expectations based on actual input values
+                        Expectations = new List<TestExpectation>(),
                     };
+                    
+                    // Add inputs to a dictionary for easier access
+                    var inputDict = step.Inputs.ToDictionary(i => i.Key, i => i.Value);
+                    
+                    // Generate expectations based on actual inputs - handles both static values and expressions
+                    foreach (var action in targetRule.Actions)
+                    {
+                        if (action is SetValueAction setAction)
+                        {
+                            // Use the TestCaseGenerator to determine the expected output based on the ACTUAL input values
+                            var expectedValue = _testCaseGenerator.DetermineOutputValue(setAction, inputDict);
+                            
+                            step.Expectations.Add(new TestExpectation
+                            {
+                                Key = setAction.Key,
+                                Expected = expectedValue,
+                                Validator = GetValidatorType(expectedValue),
+                                TimeoutMs = 1000 // Add timeout for rules to process
+                            });
+                        }
+                    }
 
                     scenario.Steps.Add(step);
                     scenarios.Add(scenario);

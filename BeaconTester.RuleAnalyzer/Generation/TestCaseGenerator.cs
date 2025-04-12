@@ -527,7 +527,10 @@ namespace BeaconTester.RuleAnalyzer.Generation
         /// <summary>
         /// Determines the expected output value from an action
         /// </summary>
-        private object DetermineOutputValue(SetValueAction action, Dictionary<string, object>? inputValues = null)
+        /// <param name="action">The action to determine the output value for</param>
+        /// <param name="inputValues">Dictionary of input values to use when evaluating expressions</param>
+        /// <returns>The expected output value</returns>
+        public object DetermineOutputValue(SetValueAction action, Dictionary<string, object>? inputValues = null)
         {
             // If a static value is provided, use that
             if (action.Value != null)
