@@ -328,7 +328,8 @@ namespace BeaconTester.RuleAnalyzer.Generation
                 {
                     case ">":
                     case "gt":
-                        return threshold + 10;
+                        // Use a value that's clearly above threshold to avoid boundary issues
+                        return threshold + Math.Max(10, threshold * 0.1); // Add at least 10 or 10% of the threshold
 
                     case ">=":
                     case "gte":
@@ -336,7 +337,8 @@ namespace BeaconTester.RuleAnalyzer.Generation
 
                     case "<":
                     case "lt":
-                        return threshold - 10;
+                        // Use a value that's clearly below threshold to avoid boundary issues
+                        return threshold - Math.Max(10, threshold * 0.1); // Subtract at least 10 or 10% of the threshold
 
                     case "<=":
                     case "lte":
